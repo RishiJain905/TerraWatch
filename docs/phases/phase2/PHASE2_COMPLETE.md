@@ -53,13 +53,9 @@ OpenSky Network API
 ## Bugs Found & Fixed During Integration
 
 1. **Vite proxy target** — was `http://backend:8000` (Docker hostname); fixed to `http://localhost:8000` for local dev
-2. **TileLayer "GeoJSON does not have type"** — cosmetic deck.gl warning from CartoDB tile parsing; does not block functionality (known deck.gl v9 issue with PNG tiles on GlobeView)
-
-## Known Issues (Deferred)
-
-1. **Frontend starts with 0 planes** — No initial REST fetch; planes only arrive via WS. A fresh page load must wait up to 30s for the next broadcast cycle. Fix: Add initial `fetch('/api/planes')` on mount in usePlanes hook.
-2. **8400 individual WS messages per cycle** — The scheduler broadcasts each plane individually. This works but could be optimized with batch upsert messages for performance.
-3. **TileLayer GeoJSON warnings** — deck.gl TileLayer emits console errors for CartoDB PNG tiles on GlobeView. The tiles still render; this is a known deck.gl v9 behavior.
+2. **Frontend starts with 0 planes** — Fixed: usePlanes hook now fetches `GET /api/planes` on mount, populating the plane map before WS messages arrive
+3. **8400 individual WS messages per cycle** — Fixed: added `broadcast_plane_batch()` to send all plane upserts in a single WS message (`plane_batch` type), reducing message volume by ~99.9%
+4. **TileLayer "GeoJSON does not have type"** — Fixed: added `renderSubLayers` callback with `BitmapLayer` to properly handle raster PNG tiles instead of default GeoJSON parsing
 
 ## Test Results
 

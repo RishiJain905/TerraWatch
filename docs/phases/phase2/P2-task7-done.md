@@ -77,11 +77,9 @@ See "Bugs Found" section below.
 
 ### Fixed in This Task
 1. **Vite proxy target misconfigured** — `vite.config.js` targeted `http://backend:8000` (Docker hostname) instead of `http://localhost:8000`. Fixed for local dev.
-
-### Known Issues (Deferred)
-1. **Frontend starts with 0 planes** — No initial REST fetch; relies entirely on WS messages. Fix: Add `fetch('/api/planes')` on component mount.
-2. **Individual plane WS broadcast** — 8400+ messages per cycle; could be optimized with batch messages.
-3. **TileLayer GeoJSON warnings** — Cosmetic deck.gl console errors; tiles still render correctly.
+2. **Frontend starts with 0 planes** — Fixed: usePlanes hook now fetches `GET /api/planes` on mount, populating the plane map before WS messages arrive.
+3. **8400 individual WS messages per cycle** — Fixed: added `broadcast_plane_batch()` to send all plane upserts in a single WS message (`plane_batch` type), reducing message volume by ~99.9%.
+4. **TileLayer "GeoJSON does not have type"** — Fixed: added `renderSubLayers` callback with `BitmapLayer` to properly handle raster PNG tiles instead of default GeoJSON parsing.
 
 ## Output Artifacts
 

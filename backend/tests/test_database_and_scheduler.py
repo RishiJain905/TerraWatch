@@ -271,6 +271,8 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         ]
 
         with patch("app.tasks.schedulers.fetch_planes", AsyncMock(return_value=planes)), patch(
+            "app.tasks.schedulers.broadcast_plane_batch", AsyncMock()
+        ) as batch_mock, patch(
             "app.tasks.schedulers.broadcast_plane_update", AsyncMock()
         ) as broadcast_mock:
             refreshed_planes = await schedulers.refresh_planes_once()
@@ -280,10 +282,11 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(refreshed_planes, planes)
         self.assertEqual(stored_ids, ["abc123", "def456"])
+        # Upserts are now sent as a single batch message
+        batch_mock.assert_awaited_once_with(planes)
+        # Removes are still sent individually
         broadcast_mock.assert_has_awaits(
             [
-                unittest.mock.call(planes[0], action="upsert"),
-                unittest.mock.call(planes[1], action="upsert"),
                 unittest.mock.call({"id": "old-plane"}, action="remove"),
             ]
         )

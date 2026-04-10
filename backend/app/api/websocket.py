@@ -60,6 +60,17 @@ async def broadcast_plane_update(plane: dict, *, action: str | None = "upsert") 
     await broadcast(message)
 
 
+async def broadcast_plane_batch(planes: list[dict]) -> None:
+    """Broadcast all plane upserts in a single WebSocket message."""
+    message = {
+        "type": "plane_batch",
+        "action": "upsert",
+        "data": planes,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    await broadcast(message)
+
+
 async def send_heartbeat(websocket: WebSocket, *, status: str | None = None) -> bool:
     payload = {}
     if status is not None:

@@ -3,7 +3,7 @@
 import asyncio
 import logging
 
-from app.api.websocket import broadcast_plane_update
+from app.api.websocket import broadcast_plane_batch, broadcast_plane_update
 from app.core.database import delete_old_planes, open_db_connection, upsert_planes
 from app.services.adsb_service import fetch_planes
 
@@ -16,11 +16,16 @@ _scheduler_tasks: list[asyncio.Task] = []
 
 
 async def _broadcast_plane_messages(planes: list[dict], deleted_ids: list[str]) -> None:
-    coroutines = [
-        broadcast_plane_update(plane, action="upsert") for plane in planes
-    ] + [
+    coroutines = []
+
+    # Send ONE batch message for all plane upserts instead of 8400+ individual messages
+    if planes:
+        coroutines.append(broadcast_plane_batch(planes))
+
+    # Individual remove messages (typically very few per cycle)
+    coroutines.extend(
         broadcast_plane_update({"id": plane_id}, action="remove") for plane_id in deleted_ids
-    ]
+    )
 
     if not coroutines:
         return

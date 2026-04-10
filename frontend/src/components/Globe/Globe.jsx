@@ -2,8 +2,7 @@ import { useState, useCallback } from 'react'
 import DeckGL from '@deck.gl/react'
 import { _GlobeView as GlobeView } from '@deck.gl/core'
 import { TileLayer } from '@deck.gl/geo-layers'
-import { ScatterplotLayer } from '@deck.gl/layers'
-import { IconLayer } from '@deck.gl/layers'
+import { ScatterplotLayer, IconLayer, BitmapLayer } from '@deck.gl/layers'
 import { createPlaneIcon } from '../../utils/planeIcons'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import { usePlanes } from '../../hooks/usePlanes'
@@ -25,7 +24,7 @@ const COLORS = {
 
 export default function Globe({ layers, onEntityClick }) {
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE)
-  const { planes, addPlane, removePlane } = usePlanes()
+  const { planes, addPlane, addPlanes, removePlane } = usePlanes()
   const { ships, addShip } = useShips()
 
   // Handle WebSocket messages
@@ -36,10 +35,14 @@ export default function Globe({ layers, onEntityClick }) {
         return
       }
       addPlane(msg.data)
+    } else if (msg.type === 'plane_batch') {
+      if (msg.data && Array.isArray(msg.data)) {
+        addPlanes(msg.data)
+      }
     } else if (msg.type === 'ship') {
       addShip(msg.data)
     }
-  }, [addPlane, addShip, removePlane])
+  }, [addPlane, addPlanes, addShip, removePlane])
 
   const { connected } = useWebSocket(handleWSMessage)
 
@@ -51,6 +54,14 @@ export default function Globe({ layers, onEntityClick }) {
     maxZoom: 19,
     tileSize: 256,
     pickable: false,
+    renderSubLayers: (props) => {
+      const { boundingBox } = props.tile
+      return new BitmapLayer(props, {
+        data: undefined,
+        image: props.data,
+        bounds: [boundingBox[0][0], boundingBox[0][1], boundingBox[1][0], boundingBox[1][1]],
+      })
+    },
   })
 
   // Build deck.gl layers
