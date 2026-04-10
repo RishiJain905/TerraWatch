@@ -45,21 +45,13 @@ npm run dev
 
 ## Production Deployment
 
-### Docker Compose Production
-
-```bash
-# Use production compose file
-docker compose -f docker/docker-compose.prod.yml up --build -d
-```
-
 ### Environment Variables
 
 Create `.env` based on `.env.example`:
 
 ```
 PYTHON_ENV=production
-VITE_API_URL=https://your-domain.com/api
-VITE_WS_URL=wss://your-domain.com/ws
+VITE_API_URL=https://your-domain.com
 ```
 
 ### Docker Health Checks
@@ -83,7 +75,7 @@ For production, use nginx as a reverse proxy (see `docker/nginx.conf`).
 
 ### WebSocket not connecting
 - Check nginx WebSocket proxy configuration
-- Ensure `VITE_WS_URL` environment variable is set correctly
+- Ensure the backend service is healthy: `curl http://localhost:8000/health`
 
 ### Docker build fails
 - Clear Docker cache: `docker compose build --no-cache`

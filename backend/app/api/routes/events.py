@@ -10,6 +10,6 @@ router = APIRouter(prefix="/api/events", tags=["events"])
 @router.get("", response_model=list[WorldEvent])
 async def get_events(db: aiosqlite.Connection = Depends(get_db)):
     """Get all events from the database."""
-    cursor = await db.execute("SELECT * FROM events")
-    rows = await cursor.fetchall()
-    return [dict(row) for row in rows]
+    async with db.execute("SELECT * FROM events") as cursor:
+        rows = await cursor.fetchall()
+        return [dict(row) for row in rows]

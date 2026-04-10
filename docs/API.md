@@ -132,9 +132,9 @@ Heartbeat:
 {
   "type": "heartbeat",
   "data": {
-    "timestamp": "2026-04-10T12:00:00Z",
     "status": "connected"
-  }
+  },
+  "timestamp": "2026-04-10T12:00:00Z"
 }
 ```
 

@@ -10,6 +10,6 @@ router = APIRouter(prefix="/api/planes", tags=["planes"])
 @router.get("", response_model=list[Plane])
 async def get_planes(db: aiosqlite.Connection = Depends(get_db)):
     """Get all active planes from the database."""
-    cursor = await db.execute("SELECT * FROM planes")
-    rows = await cursor.fetchall()
-    return [dict(row) for row in rows]
+    async with db.execute("SELECT * FROM planes") as cursor:
+        rows = await cursor.fetchall()
+        return [dict(row) for row in rows]
