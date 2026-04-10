@@ -9,8 +9,14 @@ services:
       - "8000:8000"
     volumes:
       - ../backend:/app
+    working_dir: /app
     environment:
       - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   frontend:
     build:
@@ -21,7 +27,9 @@ services:
     volumes:
       - ../frontend:/app
       - /app/node_modules
+    working_dir: /app
     environment:
       - NODE_ENV=development
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
