@@ -2,7 +2,7 @@
 
 > Live Geospatial Intelligence Platform — planes, ships, and world events on a 3D globe
 
-![Phase](https://img.shields.io/badge/Phase-1-blue)
+![Phase](https://img.shields.io/badge/Phase-2-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ## What is TerraWatch?
@@ -18,15 +18,26 @@ TerraWatch is a real-time GEOINT (Geospatial Intelligence) platform inspired by 
 
 ## Current Status
 
-**Phase 1 of 7 — Foundation Setup (Complete)**
+**Phase 1 of 7 — Foundation Setup (Complete ✓)**
 
-Phase 1 establishes the project foundation:
+Phase 1 established the project foundation:
 - [x] FastAPI backend with WebSocket support
 - [x] React + deck.gl frontend with 3D globe
 - [x] Docker Compose orchestration
 - [x] REST API and WebSocket data pipeline
 
-**Next: Phase 2 — Live Aircraft Tracking**
+**Phase 2 of 7 — Live Aircraft Tracking (In Progress)**
+
+Phase 2 adds real ADSB plane data end-to-end:
+- [ ] ADSB Exchange API integration
+- [ ] Background scheduler (30s refresh)
+- [ ] WebSocket broadcast to all clients
+- [ ] Directional plane icons on globe
+- [ ] Click-to-inspect plane info panel
+
+See [docs/phases/phase2/](docs/phases/phase2/) for task breakdown.
+
+**Next: Phase 3 — Ship Tracking**
 
 ## Tech Stack
 
