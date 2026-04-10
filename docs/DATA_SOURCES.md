@@ -8,24 +8,69 @@ All data sources are **free** and require **no paid API keys**.
 
 ### ADSB Exchange
 
-**What it is:** The world's largest cooperative network of aircraft trackers. Provides raw ADS-B (Automatic Dependent Surveillance-Broadcast) data — the same signals aircraft broadcast to air traffic control.
+**What it is:** The world's largest cooperative network of aircraft trackers. Provides raw ADS-B (Automatic Dependent Surveillance-Broadcast) data.
 
-**Website:** https://www.adsbexchange.com/api/
+**Note:** The VirtualRadar endpoint (public-api.adsbexchange.com) is **deprecated** — it now returns an AWS ALB identifier and requires api-auth UUID header. Use OpenSky Network instead (below).
 
-**Free API:** No key required. Provides:
-- Live aircraft positions (lat, lon, altitude, heading, speed)
-- Callsigns and ICAO24 addresses
-- Squawk codes
-- Registration data
+**Website:** https://www.adsbexchange.com/
 
-**Endpoint used:**
+---
+
+### OpenSky Network — PRIMARY API
+
+**What it is:** Free ADS-B network providing global aircraft tracking. No API key required.
+
+**Website:** https://opensky-network.org/
+
+**Endpoint:**
 ```
-https://public-api.adsbexchange.com/VirtualRadar/AircraftList.json
+https://opensky-network.org/api/states/all
 ```
 
-**Rate limits:** Reasonable use (one request per 30 seconds for V1 is fine)
+**No API key required** (anonymous access, rate limited to once every 10 seconds)
 
-**License:** Free for non-commercial use. Commercial use requires license — check their site.
+**Response format:** JSON with `states` array and `time` epoch.
+
+Each state vector (array of 17 elements):
+```
+Index 0:  icao24        (string, hex ICAO24 address, e.g. "a1b2c3")
+Index 1:  callsign      (string, e.g. "BAW123   ")
+Index 2:  origin_country(string, e.g. "United Kingdom")
+Index 3:  time_position (int, unix epoch seconds or null)
+Index 4:  last_contact  (int, unix epoch seconds)
+Index 5:  longitude     (float, decimal degrees)
+Index 6:  latitude      (float, decimal degrees)
+Index 7:  baro_altitude (float, meters MSL or null)
+Index 8:  on_ground     (boolean)
+Index 9:  velocity      (float, m/s ground speed)
+Index 10: true_track    (float, degrees, 0=North, 90=East)
+Index 11: vertical_rate (float, m/s)
+Index 12: sensors       (array of int or null)
+Index 13: geo_altitude  (float, meters or null)
+Index 14: squawk        (string, e.g. "7200" or null)
+Index 15: spi           (boolean, special purpose indicator)
+Index 16: position_source (int, 0=ADS-B, 1=ASTERIX, 2=MLAT)
+```
+
+Sample API response:
+```json
+{
+  "time": 1775845981,
+  "states": [
+    ["e8027c", "LPE2452 ", "Chile", 1775845976, 1775845976, -69.9544, 14.5331, 10668.0, false, 246.18, 21.58, -1.95, null, 10926.0, null, false, 0]
+  ]
+}
+```
+
+**Unit conversions needed:**
+- baro_altitude: meters → feet (multiply by 3.28084)
+- velocity: m/s → knots (multiply by 1.94384)
+
+**Rate limits:** Anonymous users: 1 request per 10 seconds. Authenticated: higher limits. For V1 (30s refresh), anonymous is fine.
+
+**Verified:** Tested 2026-04-10, returns ~12000 aircraft globally.
+
+**License:** Free for non-commercial use. Citation: Schäfer et al., IPSN 2014.
 
 ---
 
@@ -157,7 +202,7 @@ No API key needed for basic usage.
 
 | Source | V1 Refresh Rate | Method |
 |--------|----------------|--------|
-| ADSB Exchange | Every 30 seconds | BackgroundTask scheduler |
+| OpenSky Network | Every 30 seconds | asyncio scheduler |
 | AIS/ORVRTS | Every 60 seconds | BackgroundTask scheduler |
 | GDELT | Every hour | Scheduled job (downloading latest export) |
 | ACLED | Once per day | Manual/scheduled CSV refresh |
@@ -166,6 +211,7 @@ No API key needed for basic usage.
 
 ## Legal Notes
 
+- **OpenSky Network:** Free for non-commercial use. Citation: Schäfer et al., IPSN 2014.
 - **ADSB Exchange:** Non-commercial use free. Check their ToS for commercial use restrictions.
 - **AIS data:** Publicly broadcast data — free to use but some aggregators restrict commercial use.
 - **GDELT:** Publicly compiled from news — free for analysis and research.
