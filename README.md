@@ -2,7 +2,7 @@
 
 > Live Geospatial Intelligence Platform — planes, ships, and world events on a 3D globe
 
-![Phase](https://img.shields.io/badge/Phase-2-blue)
+![Phase](https://img.shields.io/badge/Phase-2_complete-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ## What is TerraWatch?
@@ -26,14 +26,15 @@ Phase 1 established the project foundation:
 - [x] Docker Compose orchestration
 - [x] REST API and WebSocket data pipeline
 
-**Phase 2 of 7 — Live Aircraft Tracking (In Progress)**
+**Phase 2 of 7 — Live Aircraft Tracking (Complete ✓)**
 
-Phase 2 adds real ADSB plane data end-to-end:
-- [ ] ADSB Exchange API integration
-- [ ] Background scheduler (30s refresh)
-- [ ] WebSocket broadcast to all clients
-- [ ] Directional plane icons on globe
-- [ ] Click-to-inspect plane info panel
+Phase 2 added real ADSB plane data end-to-end:
+- [x] OpenSky Network API integration
+- [x] Background scheduler (30s refresh)
+- [x] WebSocket broadcast to all clients
+- [x] Directional plane icons on globe
+- [x] Click-to-inspect plane info panel
+- [x] Integration tests (7/7 passing)
 
 See [docs/phases/phase2/](docs/phases/phase2/) for task breakdown.
 

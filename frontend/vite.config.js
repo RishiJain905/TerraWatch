@@ -5,13 +5,14 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    // For local dev: use localhost. For Docker: use 'backend' service name.
     proxy: {
       '/api': {
-        target: 'http://backend:8000',
+        target: 'http://localhost:8000',
         changeOrigin: true,
       },
       '/ws': {
-        target: 'ws://backend:8000',
+        target: 'ws://localhost:8000',
         ws: true,
       },
     },
