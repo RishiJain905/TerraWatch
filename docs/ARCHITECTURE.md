@@ -103,11 +103,10 @@ terrawatch/
 │   ├── ARCHITECTURE.md
 │   ├── DATA_SOURCES.md
 │   ├── API.md
-│   └── DEPLOYMENT.md
-│
-├── phases/
-│   └── phase1/
-│       └── (task MD files)
+│   ├── DEPLOYMENT.md
+│   └── phases/
+│       └── phase1/
+│           └── (task MD files)
 │
 ├── scripts/
 ├── .env.example

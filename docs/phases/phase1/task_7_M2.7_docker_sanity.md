@@ -505,7 +505,7 @@ TerraWatch/
 │   ├── package.json
 │   └── Dockerfile
 ├── docker/           # Docker configs
-├── docs/             # Documentation
+│   └── docs/         # Documentation + phases
 ├── phases/           # Phase + task specifications
 └── README.md
 ```

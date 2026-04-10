@@ -49,7 +49,7 @@ This is NOT building any features. No real data yet. No layers. Just the empty s
 ## Context Files (Always Read First)
 
 Before starting any task, read these for full context:
-- `../docs/ARCHITECTURE.md` — full project architecture
-- `../docs/DATA_SOURCES.md` — data source documentation  
+- `../../ARCHITECTURE.md` — full project architecture
+- `../../DATA_SOURCES.md` — data source documentation
 - `PHASE1_OVERVIEW.md` — this file
 - Your specific task file (see table above)
