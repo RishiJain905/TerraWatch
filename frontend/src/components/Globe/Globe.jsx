@@ -3,6 +3,8 @@ import DeckGL from '@deck.gl/react'
 import { _GlobeView as GlobeView } from '@deck.gl/core'
 import { TileLayer } from '@deck.gl/geo-layers'
 import { ScatterplotLayer } from '@deck.gl/layers'
+import { IconLayer } from '@deck.gl/layers'
+import { createPlaneIcon } from '../../utils/planeIcons'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import { usePlanes } from '../../hooks/usePlanes'
 import { useShips } from '../../hooks/useShips'
@@ -54,25 +56,24 @@ export default function Globe({ layers, onEntityClick }) {
   // Build deck.gl layers
   const deckLayers = [tileLayer]
 
-  // Plane layer
+  // Plane layer — directional icons
   if (layers && layers.planes) {
     deckLayers.push(
-      new ScatterplotLayer({
+      new IconLayer({
         id: 'planes-layer',
         data: planes,
         pickable: true,
-        opacity: 0.9,
-        stroked: true,
-        filled: true,
-        radiusScale: 1,
-        radiusMinPixels: 4,
-        radiusMaxPixels: 20,
-        lineWidthMinPixels: 1,
+        getIcon: d => ({
+          url: createPlaneIcon(d.alt),
+          width: 64,
+          height: 64,
+          anchorY: 32,
+        }),
         getPosition: d => [d.lon, d.lat],
-        getRadius: d => 100,
-        getFillColor: COLORS.plane,
-        getLineColor: [255, 255, 255],
+        getSize: 48,
+        getAngle: d => -(d.heading || 0),
         onClick: (info) => onEntityClick && onEntityClick('plane', info.object),
+        billboard: false,
       })
     )
   }
@@ -115,6 +116,11 @@ export default function Globe({ layers, onEntityClick }) {
         <span className={`ws-status ${connected ? 'connected' : 'disconnected'}`}>
           {connected ? '\u25CF Live' : '\u25CB Reconnecting'}
         </span>
+      </div>
+      <div className="globe-legend">
+        <div className="legend-item"><span className="legend-dot low"></span>Low (&lt;10k ft)</div>
+        <div className="legend-item"><span className="legend-dot medium"></span>Medium (10-30k ft)</div>
+        <div className="legend-item"><span className="legend-dot high"></span>High (&gt;30k ft)</div>
       </div>
     </div>
   )
