@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react'
 import Globe from './components/Globe/Globe'
 import Header from './components/Header/Header'
 import Sidebar from './components/Sidebar/Sidebar'
+import PlaneInfoPanel from './components/PlaneInfoPanel/PlaneInfoPanel'
 import './index.css'
 
 function App() {
@@ -13,6 +14,7 @@ function App() {
     conflicts: false,
   })
   const [selectedEntity, setSelectedEntity] = useState(null)
+  const [selectedPlane, setSelectedPlane] = useState(null)
 
   useEffect(() => {
     fetch('/api/metadata')
@@ -30,6 +32,7 @@ function App() {
 
   const handleEntityClick = useCallback((type, entity) => {
     setSelectedEntity({ type, entity })
+    if (type === 'plane') setSelectedPlane(entity)
     console.log(`Selected ${type}:`, entity)
   }, [])
 
@@ -40,6 +43,12 @@ function App() {
         <Sidebar layers={layers} onToggleLayer={toggleLayer} />
         <div className="globe-wrapper">
           <Globe layers={layers} onEntityClick={handleEntityClick} />
+          {selectedPlane && (
+            <PlaneInfoPanel
+              plane={selectedPlane}
+              onClose={() => setSelectedPlane(null)}
+            />
+          )}
         </div>
       </div>
     </div>
