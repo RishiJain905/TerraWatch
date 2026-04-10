@@ -78,11 +78,11 @@
   The reason must **not** be convenience or personal preference.
 
 - Use the appropriate delegated specialist for each task or stream:
-  - backend work: `.codex/agents/backendeng.toml`
-  - frontend work: `.codex/agents/frontendeng.toml`
-  - automated test creation or expansion: `.codex/agents/testautomator.toml`
-  - security-sensitive work or review: `.codex/agents/securityrev.toml`
-  - performance-related work: `.codex/agents/optimizer.toml`
+  - backend work: backend specialist
+  - frontend work: frontend specialist
+  - automated test creation or expansion: test specialist
+  - security-sensitive work or review: security specialist
+  - performance-related work: optimizer specialist
 
 - Always instantiate implementation work through the designated subagents when a matching role exists.
 - Work should be handed to the appropriate subagent to perform and finish, not kept local by default.
