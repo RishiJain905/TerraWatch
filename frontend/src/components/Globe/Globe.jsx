@@ -23,17 +23,21 @@ const COLORS = {
 
 export default function Globe({ layers, onEntityClick }) {
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE)
-  const { planes, addPlane } = usePlanes()
+  const { planes, addPlane, removePlane } = usePlanes()
   const { ships, addShip } = useShips()
 
   // Handle WebSocket messages
   const handleWSMessage = useCallback((msg) => {
     if (msg.type === 'plane') {
+      if (msg.action === 'remove' && msg.data?.id) {
+        removePlane(msg.data.id)
+        return
+      }
       addPlane(msg.data)
     } else if (msg.type === 'ship') {
       addShip(msg.data)
     }
-  }, [addPlane, addShip])
+  }, [addPlane, addShip, removePlane])
 
   const { connected } = useWebSocket(handleWSMessage)
 

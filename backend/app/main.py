@@ -6,14 +6,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import websocket
 from app.api.routes import events, metadata, planes, ships
 from app.core.database import close_db, init_db
+from app.tasks.schedulers import start_schedulers, stop_schedulers
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     await init_db()
+    await start_schedulers()
     yield
     # Shutdown
+    await stop_schedulers()
     await close_db()
 
 
