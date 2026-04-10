@@ -1,7 +1,7 @@
 import asyncio
-from datetime import datetime
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from fastapi import APIRouter, WebSocket
+from app.core.models import WSMessage
 
 router = APIRouter()
 
@@ -14,7 +14,17 @@ async def broadcast(message: dict):
         try:
             await client.send_json(message)
         except Exception:
-            connected_clients.remove(client)
+            if client in connected_clients:
+                connected_clients.remove(client)
+
+
+async def send_heartbeat(websocket: WebSocket, *, status: str | None = None) -> None:
+    payload = {}
+    if status is not None:
+        payload["status"] = status
+
+    message = WSMessage(type="heartbeat", data=payload)
+    await websocket.send_json(message.model_dump())
 
 
 @router.websocket("/ws")
@@ -24,21 +34,15 @@ async def websocket_endpoint(websocket: WebSocket):
     connected_clients.append(websocket)
 
     try:
-        await websocket.send_json(
-            {
-                "type": "heartbeat",
-                "data": {"timestamp": datetime.utcnow().isoformat(), "status": "connected"},
-            }
-        )
+        await send_heartbeat(websocket, status="connected")
 
         while True:
             await asyncio.sleep(10)
-            await websocket.send_json(
-                {
-                    "type": "heartbeat",
-                    "data": {"timestamp": datetime.utcnow().isoformat()},
-                }
-            )
+            await send_heartbeat(websocket)
+    except WebSocketDisconnect:
+        pass
     except Exception:
+        pass
+    finally:
         if websocket in connected_clients:
             connected_clients.remove(websocket)

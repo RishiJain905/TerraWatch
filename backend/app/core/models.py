@@ -1,25 +1,26 @@
-from datetime import datetime
-from typing import Optional
+from datetime import datetime, timezone
+from typing import Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
-class PlaneBase(BaseModel):
+def utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+class Plane(BaseModel):
     id: str
     lat: float
     lon: float
     alt: int = 0
     heading: float = 0
-    callsign: Optional[str] = ""
-    squawk: Optional[str] = ""
+    callsign: str = ""
+    squawk: str = ""
     speed: float = 0
+    timestamp: Optional[str] = None
 
 
-class PlaneResponse(PlaneBase):
-    timestamp: str
-
-
-class ShipBase(BaseModel):
+class Ship(BaseModel):
     id: str
     lat: float
     lon: float
@@ -28,14 +29,12 @@ class ShipBase(BaseModel):
     name: str = ""
     destination: str = ""
     ship_type: str = ""
+    timestamp: Optional[str] = None
 
 
-class ShipResponse(ShipBase):
-    timestamp: str
-
-
-class EventBase(BaseModel):
+class WorldEvent(BaseModel):
     id: str
+    date: str
     lat: float
     lon: float
     event_text: str
@@ -44,19 +43,29 @@ class EventBase(BaseModel):
     source_url: str = ""
 
 
-class EventResponse(EventBase):
+class ConflictZone(BaseModel):
+    id: str
     date: str
+    lat: float
+    lon: float
+    event_type: str
+    fatalities: int = 0
+    region: str = ""
+    country: str = ""
 
 
-class MetadataResponse(BaseModel):
+class Metadata(BaseModel):
     status: str
-    phase: int
+    phase: int = 1
     planes_count: int = 0
     ships_count: int = 0
+    events_count: int = 0
     last_planes_update: Optional[str] = None
     last_ships_update: Optional[str] = None
+    last_events_update: Optional[str] = None
 
 
 class WSMessage(BaseModel):
-    type: str  # "plane", "ship", "event", "heartbeat"
+    type: Literal["plane", "ship", "event", "heartbeat", "metadata"]
     data: dict
+    timestamp: str = Field(default_factory=utc_now_iso)
