@@ -24,8 +24,8 @@ TerraWatch is a real-time GEOINT (Geospatial Intelligence) platform inspired by 
 graph TB
     subgraph Client["Browser (React + deck.gl)"]
         Globe["3D Globe"]
-        Hooks["useWebSocket | usePlanes | useShips"]
-        Panels["PlaneInfoPanel | ShipInfoPanel"]
+        Hooks["useWebSocket<br/>usePlanes<br/>useShips"]
+        Panels["PlaneInfoPanel<br/>ShipInfoPanel"]
         Globe <--> Hooks
         Hooks <--> Panels
     end
@@ -34,8 +34,8 @@ graph TB
         WS["WebSocket Server /ws"]
         REST["REST API /api/*"]
         Schedulers["Background Schedulers"]
-        Services["adsb_service | ais_service"]
-        DB[(SQLite<br/>planes | ships)]
+        Services["adsb_service<br/>ais_service"]
+        DB[(SQLite<br/>planes<br/>ships)]
         Schedulers --> Services
         Services --> DB
         WS <--> Schedulers
