@@ -35,8 +35,7 @@ graph TB
         REST["REST API /api/*"]
         Schedulers["Background Schedulers"]
         Services["adsb_service | ais_service"]
-        DB[( "SQLite
-planes | ships")]
+        DB[(SQLite<br/>planes | ships)]
         Schedulers --> Services
         Services --> DB
         WS <--> Schedulers
