@@ -66,7 +66,7 @@ Verify it returns data. Note the format and any quirks.
 
 ### 4. Create phase2 PHASE2_OVERVIEW.md
 
-Make sure `docs/docs/completedphases/phase2/PHASE2_OVERVIEW.md` is complete. It should include:
+Make sure `docs/completedphases/phase2/PHASE2_OVERVIEW.md` is complete. It should include:
 - Phase goal
 - What's NOT in this phase
 - Tasks table
@@ -81,7 +81,7 @@ Check `backend/app/core/database.py` — ensure the `planes` table exists with t
 ## Output
 
 1. Updated `docs/DATA_SOURCES.md` with ADS-B Exchange API details
-2. Verified `docs/docs/completedphases/phase2/PHASE2_OVERVIEW.md` is complete
+2. Verified `docs/completedphases/phase2/PHASE2_OVERVIEW.md` is complete
 3. API test results (how many planes, sample data)
 4. Any schema issues that need fixing before Task 2
 

@@ -8,11 +8,11 @@ Tasks 2-6 have ship data flowing end-to-end. This task verifies the full pipelin
 
 You are M2.7 (coordinator). Read these files first:
 - `docs/ARCHITECTURE.md`
-- `docs/docs/completedphases/phase3/PHASE3_OVERVIEW.md`
-- `docs/docs/completedphases/phase3/P3-task2-done.md`
-- `docs/docs/completedphases/phase3/P3-task3-done.md`
-- `docs/docs/completedphases/phase3/P3-task5-done.md`
-- `docs/docs/completedphases/phase3/P3-task6-done.md`
+- `docs/completedphases/phase3/PHASE3_OVERVIEW.md`
+- `docs/completedphases/phase3/P3-task2-done.md`
+- `docs/completedphases/phase3/P3-task3-done.md`
+- `docs/completedphases/phase3/P3-task5-done.md`
+- `docs/completedphases/phase3/P3-task6-done.md`
 - `backend/tests/test_integration.py` (Phase 2 integration test — use as template)
 
 ## Your Task
@@ -58,7 +58,7 @@ cd backend && python -m pytest tests/test_ship_integration.py -v
    - WebSocket connected indicator shows live
    - Console has no errors
 
-### 5. Create `docs/docs/completedphases/phase3/PHASE3_COMPLETE.md`
+### 5. Create `docs/completedphases/phase3/PHASE3_COMPLETE.md`
 
 Document:
 - What was built
@@ -78,7 +78,7 @@ Document:
 ## Output Files
 
 - `backend/tests/test_ship_integration.py` — create
-- `docs/docs/completedphases/phase3/PHASE3_COMPLETE.md` — create
+- `docs/completedphases/phase3/PHASE3_COMPLETE.md` — create
 
 ## Verification
 

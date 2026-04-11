@@ -88,7 +88,7 @@ Document any errors, bugs, or UX issues found.
 If everything works:
 1. Update `backend/app/tasks/schedulers.py` — remove debug print statements
 2. Update README.md — remove "Next: Phase 2" and update Phase status
-3. Create `docs/docs/completedphases/phase2/PHASE2_COMPLETE.md` summarizing what was built
+3. Create `docs/completedphases/phase2/PHASE2_COMPLETE.md` summarizing what was built
 4. Git commit all Phase 2 changes
 
 ## Success Criteria

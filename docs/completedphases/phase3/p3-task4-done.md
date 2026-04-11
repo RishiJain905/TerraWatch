@@ -52,7 +52,7 @@ A few repo/spec mismatches were reconciled during implementation:
    - `docs/DATA_SOURCES.md`
    - `docs/completedphases/phase3/PHASE3_OVERVIEW.md`
 
-2. The task spec referenced prior completion summaries under `docs/docs/completedphases/phase3/...`, but the live repo artifacts are under `docs/completedphases/phase3/`.
+2. The task spec referenced prior completion summaries under `docs/completedphases/phase3/...`, but the live repo artifacts are under `docs/completedphases/phase3/`.
    The live repo files were treated as the source of truth.
 
 3. The task text had an internal contradiction for missing ships:

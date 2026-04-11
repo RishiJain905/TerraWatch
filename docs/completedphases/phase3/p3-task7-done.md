@@ -17,7 +17,7 @@ Created the Phase 3 integration test suite (`test_ship_integration.py`) and the 
 | File | Description |
 |------|-------------|
 | `backend/tests/test_ship_integration.py` | Phase 3 integration test suite — 10 tests |
-| `docs/docs/completedphases/phase3/PHASE3_COMPLETE.md` | Phase 3 completion summary document |
+| `docs/completedphases/phase3/PHASE3_COMPLETE.md` | Phase 3 completion summary document |
 
 ---
 
