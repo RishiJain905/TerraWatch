@@ -21,19 +21,37 @@ export function useShips() {
     }
   }, [])
 
+  // Single ship upsert
   const addShip = useCallback((ship) => {
+    if (!ship || !ship.id) return
     setShips(prev => {
-      const existing = prev.findIndex(s => s.id === ship.id)
-      if (existing >= 0) {
+      const idx = prev.findIndex(s => s.id === ship.id)
+      if (idx >= 0) {
         const updated = [...prev]
-        updated[existing] = ship
+        updated[idx] = ship
         return updated
       }
       return [...prev, ship]
     })
   }, [])
 
+  // Batch ship upsert (for ship_batch WebSocket messages)
+  const addShips = useCallback((shipList) => {
+    if (!Array.isArray(shipList) || shipList.length === 0) return
+    setShips(prev => {
+      const map = new Map(prev.map(s => [s.id, s]))
+      for (const ship of shipList) {
+        if (ship && ship.id) {
+          map.set(ship.id, ship)
+        }
+      }
+      return Array.from(map.values())
+    })
+  }, [])
+
+  // Remove ship by id
   const removeShip = useCallback((shipId) => {
+    if (!shipId) return
     setShips(prev => prev.filter(s => s.id !== shipId))
   }, [])
 
@@ -41,5 +59,5 @@ export function useShips() {
     fetchShips()
   }, [fetchShips])
 
-  return { ships, loading, error, fetchShips, addShip, removeShip }
+  return { ships, loading, error, fetchShips, addShip, addShips, removeShip }
 }

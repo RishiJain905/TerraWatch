@@ -59,6 +59,26 @@
   z-index: 100;
 }
 
+.legend-section {
+  margin: 2px 0;
+}
+
+.legend-title {
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 4px;
+  margin-top: 4px;
+}
+
+.legend-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 8px 0;
+}
+
 .legend-item {
   display: flex;
   align-items: center;
@@ -75,3 +95,12 @@
 .legend-dot.low { background: rgb(0, 255, 100); }
 .legend-dot.medium { background: rgb(255, 255, 0); }
 .legend-dot.high { background: rgb(255, 100, 100); }
+
+/* Ship type legend icons */
+.ship-icon {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  margin-right: 8px;
+  display: inline-block;
+}

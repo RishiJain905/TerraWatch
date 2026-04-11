@@ -89,6 +89,71 @@ class DatabaseHelperTests(unittest.IsolatedAsyncioTestCase):
             ],
         )
 
+    async def test_upsert_ship_helpers_insert_and_update_ship_rows(self):
+        db = await database.get_db()
+        original_ship = {
+            "id": "219598000",
+            "lat": 55.770832,
+            "lon": 20.85169,
+            "heading": 79.0,
+            "speed": 0.1,
+            "name": "NORD SUPERIOR",
+            "destination": "NL AMS",
+            "ship_type": "tanker",
+            "timestamp": "2026-04-11T01:44:52+00:00",
+        }
+        updated_ship = {
+            **original_ship,
+            "speed": 1.2,
+            "destination": "FI HEL",
+            "timestamp": "2026-04-11T01:45:52+00:00",
+        }
+        second_ship = {
+            "id": "230000001",
+            "lat": 60.16952,
+            "lon": 24.93545,
+            "heading": 123.4,
+            "speed": 0.0,
+            "name": "BALTIC STAR",
+            "destination": "EE TLL",
+            "ship_type": "passenger",
+            "timestamp": "2026-04-11T01:46:00+00:00",
+        }
+
+        await database.upsert_ship(db, original_ship, commit=False)
+        await database.upsert_ships(db, [updated_ship, second_ship])
+
+        async with db.execute("SELECT * FROM ships ORDER BY id") as cursor:
+            rows = [dict(row) for row in await cursor.fetchall()]
+
+        self.assertEqual(
+            rows,
+            [
+                {
+                    "id": "219598000",
+                    "lat": 55.770832,
+                    "lon": 20.85169,
+                    "heading": 79.0,
+                    "speed": 1.2,
+                    "name": "NORD SUPERIOR",
+                    "destination": "FI HEL",
+                    "ship_type": "tanker",
+                    "timestamp": "2026-04-11T01:45:52+00:00",
+                },
+                {
+                    "id": "230000001",
+                    "lat": 60.16952,
+                    "lon": 24.93545,
+                    "heading": 123.4,
+                    "speed": 0.0,
+                    "name": "BALTIC STAR",
+                    "destination": "EE TLL",
+                    "ship_type": "passenger",
+                    "timestamp": "2026-04-11T01:46:00+00:00",
+                },
+            ],
+        )
+
     async def test_delete_old_planes_removes_rows_older_than_max_age(self):
         db = await database.get_db()
         fresh_timestamp = datetime.now(timezone.utc).isoformat()
@@ -129,6 +194,47 @@ class DatabaseHelperTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(deleted_ids, ["stale-plane"])
         self.assertEqual(remaining_ids, ["fresh-plane"])
+
+    async def test_delete_old_ships_removes_rows_older_than_max_age(self):
+        db = await database.get_db()
+        fresh_timestamp = datetime.now(timezone.utc).isoformat()
+        stale_timestamp = (datetime.now(timezone.utc) - timedelta(minutes=20)).isoformat()
+
+        await database.upsert_ships(
+            db,
+            [
+                {
+                    "id": "fresh-ship",
+                    "lat": 60.0,
+                    "lon": 24.0,
+                    "heading": 180.0,
+                    "speed": 12.5,
+                    "name": "FRESH VESSEL",
+                    "destination": "FI TKU",
+                    "ship_type": "cargo",
+                    "timestamp": fresh_timestamp,
+                },
+                {
+                    "id": "stale-ship",
+                    "lat": 61.0,
+                    "lon": 25.0,
+                    "heading": 90.0,
+                    "speed": 4.5,
+                    "name": "STALE VESSEL",
+                    "destination": "SE STO",
+                    "ship_type": "other",
+                    "timestamp": stale_timestamp,
+                },
+            ],
+            commit=False,
+        )
+        deleted_ids = await database.delete_old_ships(db, max_age_minutes=10)
+
+        async with db.execute("SELECT id FROM ships ORDER BY id") as cursor:
+            remaining_ids = [row[0] for row in await cursor.fetchall()]
+
+        self.assertEqual(deleted_ids, ["stale-ship"])
+        self.assertEqual(remaining_ids, ["fresh-ship"])
 
 
 class DatabaseMigrationTests(unittest.IsolatedAsyncioTestCase):
@@ -360,6 +466,137 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(stored_ids, ["writer-plane"])
         shared_get_db_mock.assert_not_awaited()
 
+    async def test_refresh_ships_once_persists_ships_cleans_stale_rows_and_broadcasts_ship_upserts_and_removes(self):
+        db = await database.get_db()
+        stale_timestamp = (datetime.now(timezone.utc) - timedelta(minutes=20)).isoformat()
+        await database.upsert_ship(
+            db,
+            {
+                "id": "old-ship",
+                "lat": 55.0,
+                "lon": 20.0,
+                "heading": 0.0,
+                "speed": 0.0,
+                "name": "",
+                "destination": "",
+                "ship_type": "other",
+                "timestamp": stale_timestamp,
+            },
+        )
+
+        ships = [
+            {
+                "id": "219598000",
+                "lat": 55.770832,
+                "lon": 20.85169,
+                "heading": 79.0,
+                "speed": 0.1,
+                "name": "NORD SUPERIOR",
+                "destination": "NL AMS",
+                "ship_type": "tanker",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+            {
+                "id": "230000001",
+                "lat": 60.16952,
+                "lon": 24.93545,
+                "heading": 123.4,
+                "speed": 0.0,
+                "name": "BALTIC STAR",
+                "destination": "EE TLL",
+                "ship_type": "passenger",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        ]
+
+        with patch("app.tasks.schedulers.fetch_ships", AsyncMock(return_value=ships)), patch(
+            "app.tasks.schedulers.broadcast_ship_batch", AsyncMock()
+        ) as batch_mock, patch(
+            "app.tasks.schedulers.broadcast_ship_update", AsyncMock()
+        ) as broadcast_mock:
+            refreshed_ships = await schedulers.refresh_ships_once()
+
+        async with db.execute("SELECT id FROM ships ORDER BY id") as cursor:
+            stored_ids = [row[0] for row in await cursor.fetchall()]
+
+        self.assertEqual(refreshed_ships, ships)
+        self.assertEqual(stored_ids, ["219598000", "230000001"])
+        batch_mock.assert_awaited_once_with(ships)
+        broadcast_mock.assert_has_awaits(
+            [
+                unittest.mock.call({"id": "old-ship"}, action="remove"),
+            ]
+        )
+
+    async def test_refresh_ships_once_rolls_back_failed_write_batch_and_leaves_state_unchanged(self):
+        db = await database.get_db()
+        existing_ship = {
+            "id": "existing-ship",
+            "lat": 60.0,
+            "lon": 24.0,
+            "heading": 180.0,
+            "speed": 12.5,
+            "name": "EXISTING",
+            "destination": "FI HEL",
+            "ship_type": "cargo",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        await database.upsert_ship(db, existing_ship)
+
+        incoming_ships = [
+            {
+                "id": "new-ship",
+                "lat": 61.0,
+                "lon": 25.0,
+                "heading": 90.0,
+                "speed": 7.5,
+                "name": "NEW SHIP",
+                "destination": "SE STO",
+                "ship_type": "other",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        ]
+
+        with patch("app.tasks.schedulers.fetch_ships", AsyncMock(return_value=incoming_ships)), patch(
+            "app.tasks.schedulers.delete_old_ships", AsyncMock(side_effect=RuntimeError("boom"))
+        ), patch("app.tasks.schedulers.broadcast_ship_update", AsyncMock()):
+            with self.assertRaises(RuntimeError):
+                await schedulers.refresh_ships_once()
+
+        async with db.execute("SELECT * FROM ships ORDER BY id") as cursor:
+            rows = [dict(row) for row in await cursor.fetchall()]
+
+        self.assertEqual(rows, [existing_ship])
+
+    async def test_refresh_ships_once_uses_dedicated_connection_instead_of_shared_get_db(self):
+        db = await database.get_db()
+        ships = [
+            {
+                "id": "writer-ship",
+                "lat": 60.5,
+                "lon": 25.5,
+                "heading": 45.0,
+                "speed": 8.5,
+                "name": "WRITER SHIP",
+                "destination": "LV RIX",
+                "ship_type": "other",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        ]
+        shared_get_db_mock = AsyncMock(side_effect=AssertionError("shared get_db should not be used"))
+
+        with patch("app.tasks.schedulers.fetch_ships", AsyncMock(return_value=ships)), patch(
+            "app.tasks.schedulers.get_db", shared_get_db_mock, create=True
+        ), patch("app.tasks.schedulers.broadcast_ship_update", AsyncMock()):
+            refreshed_ships = await schedulers.refresh_ships_once()
+
+        async with db.execute("SELECT id FROM ships ORDER BY id") as cursor:
+            stored_ids = [row[0] for row in await cursor.fetchall()]
+
+        self.assertEqual(refreshed_ships, ships)
+        self.assertEqual(stored_ids, ["writer-ship"])
+        shared_get_db_mock.assert_not_awaited()
+
     async def test_plane_fetch_loop_recovers_after_refresh_failure(self):
         refresh_mock = AsyncMock(side_effect=[RuntimeError("boom"), asyncio.CancelledError()])
         sleep_mock = AsyncMock(return_value=None)
@@ -374,26 +611,54 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         sleep_mock.assert_awaited_once_with(0)
         log_exception_mock.assert_called_once()
 
-    async def test_start_and_stop_schedulers_manage_background_tasks(self):
-        started = asyncio.Event()
-        cancelled = asyncio.Event()
+    async def test_ships_refresh_loop_recovers_after_refresh_failure(self):
+        refresh_mock = AsyncMock(side_effect=[RuntimeError("boom"), asyncio.CancelledError()])
+        sleep_mock = AsyncMock(return_value=None)
 
-        async def fake_loop(interval_seconds=schedulers.PLANE_REFRESH_INTERVAL_SECONDS):
-            started.set()
+        with patch("app.tasks.schedulers.refresh_ships_once", refresh_mock), patch(
+            "app.tasks.schedulers.asyncio.sleep", sleep_mock
+        ), patch("app.tasks.schedulers.logger.exception") as log_exception_mock:
+            with self.assertRaises(asyncio.CancelledError):
+                await schedulers.ships_refresh_loop(interval_seconds=0)
+
+        self.assertEqual(refresh_mock.await_count, 2)
+        sleep_mock.assert_awaited_once_with(0)
+        log_exception_mock.assert_called_once()
+
+    async def test_start_and_stop_schedulers_manage_background_tasks(self):
+        plane_started = asyncio.Event()
+        ship_started = asyncio.Event()
+        plane_cancelled = asyncio.Event()
+        ship_cancelled = asyncio.Event()
+
+        async def fake_plane_loop(interval_seconds=schedulers.PLANE_REFRESH_INTERVAL_SECONDS):
+            plane_started.set()
             try:
                 await asyncio.Event().wait()
             except asyncio.CancelledError:
-                cancelled.set()
+                plane_cancelled.set()
                 raise
 
-        with patch("app.tasks.schedulers.plane_fetch_loop", fake_loop):
-            tasks = await schedulers.start_schedulers(interval_seconds=0)
-            await asyncio.wait_for(started.wait(), timeout=1)
-            self.assertEqual(len(tasks), 1)
-            self.assertFalse(tasks[0].done())
+        async def fake_ship_loop(interval_seconds=schedulers.SHIP_REFRESH_INTERVAL_SECONDS):
+            ship_started.set()
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                ship_cancelled.set()
+                raise
+
+        with patch("app.tasks.schedulers.plane_fetch_loop", fake_plane_loop), patch(
+            "app.tasks.schedulers.ships_refresh_loop", fake_ship_loop
+        ):
+            tasks = await schedulers.start_schedulers(interval_seconds=0, ship_interval_seconds=0)
+            await asyncio.wait_for(plane_started.wait(), timeout=1)
+            await asyncio.wait_for(ship_started.wait(), timeout=1)
+            self.assertEqual(len(tasks), 2)
+            self.assertTrue(all(not task.done() for task in tasks))
             await schedulers.stop_schedulers()
 
-        await asyncio.wait_for(cancelled.wait(), timeout=1)
+        await asyncio.wait_for(plane_cancelled.wait(), timeout=1)
+        await asyncio.wait_for(ship_cancelled.wait(), timeout=1)
         self.assertEqual(schedulers.get_scheduler_tasks(), [])
 
 
@@ -468,6 +733,86 @@ class WebSocketBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 "type": "plane",
                 "action": "remove",
                 "data": {"id": "stale-plane"},
+                "timestamp": ANY,
+            }
+        )
+
+    async def test_broadcast_ship_update_sends_single_ship_payload_and_logs_dead_clients(self):
+        from app.api import websocket
+
+        live_client = AsyncMock()
+        dead_client = AsyncMock()
+        dead_client.send_json.side_effect = RuntimeError("socket closed")
+        websocket.connected_clients[:] = [live_client, dead_client]
+        ship = {
+            "id": "219598000",
+            "lat": 55.770832,
+            "lon": 20.85169,
+            "heading": 79.0,
+            "speed": 0.1,
+            "name": "NORD SUPERIOR",
+            "destination": "NL AMS",
+            "ship_type": "tanker",
+            "timestamp": "2026-04-11T01:44:52+00:00",
+        }
+
+        with patch("app.api.websocket.logger.warning") as log_warning_mock:
+            await websocket.broadcast_ship_update(ship)
+
+        live_client.send_json.assert_awaited_once_with(
+            {
+                "type": "ship",
+                "action": "upsert",
+                "data": ship,
+                "timestamp": ANY,
+            }
+        )
+        self.assertEqual(websocket.connected_clients, [live_client])
+        log_warning_mock.assert_called_once()
+
+    async def test_broadcast_ship_update_supports_remove_action_payload(self):
+        from app.api import websocket
+
+        live_client = AsyncMock()
+        websocket.connected_clients[:] = [live_client]
+
+        await websocket.broadcast_ship_update({"id": "stale-ship"}, action="remove")
+
+        live_client.send_json.assert_awaited_once_with(
+            {
+                "type": "ship",
+                "action": "remove",
+                "data": {"id": "stale-ship"},
+                "timestamp": ANY,
+            }
+        )
+
+    async def test_broadcast_ship_batch_sends_one_batch_payload(self):
+        from app.api import websocket
+
+        live_client = AsyncMock()
+        websocket.connected_clients[:] = [live_client]
+        ships = [
+            {
+                "id": "219598000",
+                "lat": 55.770832,
+                "lon": 20.85169,
+                "heading": 79.0,
+                "speed": 0.1,
+                "name": "NORD SUPERIOR",
+                "destination": "NL AMS",
+                "ship_type": "tanker",
+                "timestamp": "2026-04-11T01:44:52+00:00",
+            }
+        ]
+
+        await websocket.broadcast_ship_batch(ships)
+
+        live_client.send_json.assert_awaited_once_with(
+            {
+                "type": "ship_batch",
+                "action": "upsert",
+                "data": ships,
                 "timestamp": ANY,
             }
         )

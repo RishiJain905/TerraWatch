@@ -3,6 +3,7 @@ import Globe from './components/Globe/Globe'
 import Header from './components/Header/Header'
 import Sidebar from './components/Sidebar/Sidebar'
 import PlaneInfoPanel from './components/PlaneInfoPanel/PlaneInfoPanel'
+import ShipInfoPanel from './components/ShipInfoPanel/ShipInfoPanel'
 import './index.css'
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
   })
   const [selectedEntity, setSelectedEntity] = useState(null)
   const [selectedPlane, setSelectedPlane] = useState(null)
+  const [selectedShip, setSelectedShip] = useState(null)
 
   useEffect(() => {
     fetch('/api/metadata')
@@ -32,7 +34,13 @@ function App() {
 
   const handleEntityClick = useCallback((type, entity) => {
     setSelectedEntity({ type, entity })
-    if (type === 'plane') setSelectedPlane(entity)
+    if (type === 'plane') {
+      setSelectedPlane(entity)
+      setSelectedShip(null)
+    } else if (type === 'ship') {
+      setSelectedShip(entity)
+      setSelectedPlane(null)
+    }
     console.log(`Selected ${type}:`, entity)
   }, [])
 
@@ -47,6 +55,12 @@ function App() {
             <PlaneInfoPanel
               plane={selectedPlane}
               onClose={() => setSelectedPlane(null)}
+            />
+          )}
+          {selectedShip && (
+            <ShipInfoPanel
+              ship={selectedShip}
+              onClose={() => setSelectedShip(null)}
             />
           )}
         </div>
