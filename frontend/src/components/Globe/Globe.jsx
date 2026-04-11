@@ -2,8 +2,9 @@ import { useState, useCallback } from 'react'
 import DeckGL from '@deck.gl/react'
 import { _GlobeView as GlobeView } from '@deck.gl/core'
 import { TileLayer } from '@deck.gl/geo-layers'
-import { ScatterplotLayer, IconLayer, BitmapLayer } from '@deck.gl/layers'
+import { IconLayer, BitmapLayer } from '@deck.gl/layers'
 import { getPlaneIcon } from '../../utils/planeIcons'
+import { getShipIcon, SHIP_TYPE_COLORS } from '../../utils/shipIcons'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import { usePlanes } from '../../hooks/usePlanes'
 import { useShips } from '../../hooks/useShips'
@@ -17,17 +18,21 @@ const INITIAL_VIEW_STATE = {
   bearing: 0,
 }
 
-const COLORS = {
-  plane: [255, 100, 100],
-  ship: [100, 200, 255],
-}
+// Ship type entries for the legend
+const SHIP_LEGEND = [
+  { type: 'cargo',     label: 'Cargo',     color: SHIP_TYPE_COLORS.cargo.hex },
+  { type: 'tanker',    label: 'Tanker',    color: SHIP_TYPE_COLORS.tanker.hex },
+  { type: 'passenger', label: 'Passenger', color: SHIP_TYPE_COLORS.passenger.hex },
+  { type: 'fishing',   label: 'Fishing',   color: SHIP_TYPE_COLORS.fishing.hex },
+  { type: 'other',     label: 'Other',     color: SHIP_TYPE_COLORS.other.hex },
+]
 
 export default function Globe({ layers, onEntityClick }) {
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE)
   const { planes, addPlane, addPlanes, removePlane } = usePlanes()
-  const { ships, addShip } = useShips()
+  const { ships, addShip, addShips, removeShip } = useShips()
 
-  // Handle WebSocket messages
+  // Handle WebSocket messages — planes + ships
   const handleWSMessage = useCallback((msg) => {
     if (msg.type === 'plane') {
       if (msg.action === 'remove' && msg.data?.id) {
@@ -40,9 +45,17 @@ export default function Globe({ layers, onEntityClick }) {
         addPlanes(msg.data)
       }
     } else if (msg.type === 'ship') {
+      if (msg.action === 'remove' && msg.data?.id) {
+        removeShip(msg.data.id)
+        return
+      }
       addShip(msg.data)
+    } else if (msg.type === 'ship_batch') {
+      if (msg.data && Array.isArray(msg.data)) {
+        addShips(msg.data)
+      }
     }
-  }, [addPlane, addPlanes, addShip, removePlane])
+  }, [addPlane, addPlanes, addShip, addShips, removePlane, removeShip])
 
   const { connected } = useWebSocket(handleWSMessage)
 
@@ -84,25 +97,19 @@ export default function Globe({ layers, onEntityClick }) {
     )
   }
 
-  // Ship layer
+  // Ship layer — directional icons, color-coded by type
   if (layers && layers.ships) {
     deckLayers.push(
-      new ScatterplotLayer({
+      new IconLayer({
         id: 'ships-layer',
         data: ships,
         pickable: true,
-        opacity: 0.9,
-        stroked: true,
-        filled: true,
-        radiusScale: 1,
-        radiusMinPixels: 4,
-        radiusMaxPixels: 15,
-        lineWidthMinPixels: 1,
+        getIcon: d => getShipIcon(d.ship_type),
         getPosition: d => [d.lon, d.lat],
-        getRadius: d => 80,
-        getFillColor: COLORS.ship,
-        getLineColor: [255, 255, 255],
+        getSize: 48,
+        getAngle: d => -(d.heading || 0),
         onClick: (info) => onEntityClick && onEntityClick('ship', info.object),
+        billboard: false,
       })
     )
   }
@@ -124,9 +131,22 @@ export default function Globe({ layers, onEntityClick }) {
         </span>
       </div>
       <div className="globe-legend">
-        <div className="legend-item"><span className="legend-dot low"></span>Low (&lt;10k ft)</div>
-        <div className="legend-item"><span className="legend-dot medium"></span>Medium (10-30k ft)</div>
-        <div className="legend-item"><span className="legend-dot high"></span>High (&gt;30k ft)</div>
+        <div className="legend-section">
+          <div className="legend-title">Aircraft Altitude</div>
+          <div className="legend-item"><span className="legend-dot low"></span>Low (&lt;10k ft)</div>
+          <div className="legend-item"><span className="legend-dot medium"></span>Medium (10-30k ft)</div>
+          <div className="legend-item"><span className="legend-dot high"></span>High (&gt;30k ft)</div>
+        </div>
+        <div className="legend-divider"></div>
+        <div className="legend-section">
+          <div className="legend-title">Ship Types</div>
+          {SHIP_LEGEND.map(entry => (
+            <div className="legend-item" key={entry.type}>
+              <span className="ship-icon" style={{ backgroundColor: entry.color }}></span>
+              {entry.label}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
