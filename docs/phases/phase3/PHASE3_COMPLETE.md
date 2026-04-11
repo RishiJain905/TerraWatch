@@ -90,12 +90,12 @@ All Phase 2 plane tests continue to pass — no regression.
 | File | Description |
 |------|-------------|
 | `backend/tests/test_ship_integration.py` | Phase 3 integration test suite |
-| `phases/phase3/P3-task1-done.md` | Task 1 completion summary |
-| `phases/phase3/p3-task2-done.md` | Task 2 completion summary |
-| `phases/phase3/p3-task3-done.md` | Task 3 completion summary |
-| `phases/phase3/p3-task4-done.md` | Task 4 completion summary |
-| `phases/phase3/p3-task5-done.md` | Task 5 completion summary |
-| `phases/phase3/p3-task6-done.md` | Task 6 completion summary |
+| `docs/completedphases/phase3/P3-task1-done.md` | Task 1 completion summary |
+| `docs/completedphases/phase3/p3-task2-done.md` | Task 2 completion summary |
+| `docs/completedphases/phase3/p3-task3-done.md` | Task 3 completion summary |
+| `docs/completedphases/phase3/p3-task4-done.md` | Task 4 completion summary |
+| `docs/completedphases/phase3/p3-task5-done.md` | Task 5 completion summary |
+| `docs/completedphases/phase3/p3-task6-done.md` | Task 6 completion summary |
 
 ### Modified this phase
 

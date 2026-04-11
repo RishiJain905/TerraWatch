@@ -34,7 +34,7 @@ TerraWatch/
 │       └── App.jsx
 ├── docker/
 ├── docs/
-├── phases/phase1/
+├── docs/completedphases/phase1/
 └── scripts/
 ```
 

@@ -9,7 +9,7 @@ Ships are flowing through the backend. This task replaces the placeholder Scatte
 You are GLM 5.1 (frontend specialist). Read these files first:
 - `docs/ARCHITECTURE.md`
 - `docs/phases/phase3/PHASE3_OVERVIEW.md`
-- `phases/phase3/P3-task1-done.md`
+- `docs/completedphases/phase3/P3-task1-done.md`
 - `frontend/src/components/Globe/Globe.jsx` (existing plane IconLayer — use as reference)
 - `frontend/src/utils/planeIcons.js` (existing plane icon generation — use as pattern)
 - `frontend/src/hooks/useShips.js` (existing — verify it handles ship_batch WS messages)

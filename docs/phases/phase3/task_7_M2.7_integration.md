@@ -9,10 +9,10 @@ Tasks 2-6 have ship data flowing end-to-end. This task verifies the full pipelin
 You are M2.7 (coordinator). Read these files first:
 - `docs/ARCHITECTURE.md`
 - `docs/phases/phase3/PHASE3_OVERVIEW.md`
-- `phases/phase3/p3-task2-done.md`
-- `phases/phase3/p3-task3-done.md`
-- `phases/phase3/p3-task5-done.md`
-- `phases/phase3/p3-task6-done.md`
+- `docs/completedphases/phase3/p3-task2-done.md`
+- `docs/completedphases/phase3/p3-task3-done.md`
+- `docs/completedphases/phase3/p3-task5-done.md`
+- `docs/completedphases/phase3/p3-task6-done.md`
 - `backend/tests/test_integration.py` (Phase 2 integration test — use as template)
 
 ## Your Task

@@ -39,7 +39,7 @@ Modified:
 
 Created:
 - `backend/tests/test_ship_routes.py`
-- `phases/phase3/p3-task4-done.md`
+- `docs/completedphases/phase3/p3-task4-done.md`
 
 ---
 
@@ -50,9 +50,9 @@ A few repo/spec mismatches were reconciled during implementation:
 1. The prompt referenced `Architecture.md`, `Data_source.md`, and `Phase3_overview.md`, but the live repo files are:
    - `docs/ARCHITECTURE.md`
    - `docs/DATA_SOURCES.md`
-   - `phases/phase3/PHASE3_OVERVIEW.md`
+   - `docs/completedphases/phase3/PHASE3_OVERVIEW.md`
 
-2. The task spec referenced prior completion summaries under `docs/phases/phase3/...`, but the live repo artifacts are under `phases/phase3/`.
+2. The task spec referenced prior completion summaries under `docs/docs/completedphases/phase3/...`, but the live repo artifacts are under `docs/completedphases/phase3/`.
    The live repo files were treated as the source of truth.
 
 3. The task text had an internal contradiction for missing ships:

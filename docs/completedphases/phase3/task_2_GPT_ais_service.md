@@ -9,8 +9,8 @@ Task 1 has verified a free AIS API and documented it in `docs/DATA_SOURCES.md`. 
 You are GPT 5.4 (backend specialist). Read these files first:
 - `docs/ARCHITECTURE.md`
 - `docs/DATA_SOURCES.md`
-- `docs/phases/phase3/PHASE3_OVERVIEW.md`
-- `docs/phases/phase3/P3-task1-done.md` (the completion summary from Task 1)
+- `docs/docs/completedphases/phase3/PHASE3_OVERVIEW.md`
+- `docs/docs/completedphases/phase3/P3-task1-done.md` (the completion summary from Task 1)
 - `backend/app/core/models.py` (Ship model definition)
 - `backend/app/services/adsb_service.py` (reference implementation pattern)
 

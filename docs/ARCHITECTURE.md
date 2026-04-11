@@ -104,7 +104,7 @@ terrawatch/
 │   ├── DATA_SOURCES.md
 │   ├── API.md
 │   ├── DEPLOYMENT.md
-│   └── phases/
+│   └── docs/completedphases/
 │       └── phase1/
 │           └── (task MD files)
 │

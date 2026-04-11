@@ -506,7 +506,7 @@ TerraWatch/
 │   └── Dockerfile
 ├── docker/           # Docker configs
 │   └── docs/         # Documentation + phases
-├── phases/           # Phase + task specifications
+├── docs/completedphases/           # Phase + task specifications
 └── README.md
 ```
 
@@ -519,7 +519,7 @@ This project is built with a multi-agent system:
 - **GLM 5.1**: Frontend (React, deck.gl, globe visualization)
 - **MiniMax M2.7**: Coordinator (architecture, Docker, integration)
 
-Each phase has task files in `phases/phaseX/` that define implementation tasks for each agent.
+Each phase has task files in `docs/completedphases/phaseX/` that define implementation tasks for each agent.
 
 ### Version Plan
 

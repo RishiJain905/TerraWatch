@@ -291,11 +291,11 @@ TerraWatch/
 │   ├── ARCHITECTURE.md
 │   ├── DATA_SOURCES.md
 │   ├── API.md
-│   └── phases/
+│   └── docs/completedphases/
 │       ├── phase2/
 │       └── phase3/
 │
-├── phases/                      # Agent task specifications
+├── docs/completedphases/                      # Agent task specifications
 │   ├── phase2/
 │   └── phase3/
 │
@@ -331,7 +331,7 @@ TerraWatch is built by a multi-agent system:
 | **GPT 5.4** | Backend | FastAPI routes, data services, schedulers, database |
 | **GLM 5.1** | Frontend | React, deck.gl layers, globe, info panels |
 
-Task files in `phases/phaseX/` define implementation work for each agent. Agents read the task spec, implement the code, then document completion in the same file.
+Task files in `docs/completedphases/phaseX/` define implementation work for each agent. Agents read the task spec, implement the code, then document completion in the same file.
 
 ### Version Roadmap
 

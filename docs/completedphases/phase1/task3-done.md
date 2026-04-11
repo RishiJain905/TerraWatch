@@ -22,7 +22,7 @@
 - `backend/app/api/routes/events.py`
 - `backend/app/api/routes/metadata.py`
 - `backend/app/api/websocket.py`
-- `phases/phase1/task3-done.md`
+- `docs/completedphases/phase1/task3-done.md`
 
 ### Files Updated
 

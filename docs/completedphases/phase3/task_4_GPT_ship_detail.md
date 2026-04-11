@@ -8,9 +8,9 @@ Tasks 2 and 3 have ship data flowing into the database and WebSocket. This task 
 
 You are GPT 5.4 (backend specialist). Read these files first:
 - `docs/ARCHITECTURE.md`
-- `docs/phases/phase3/PHASE3_OVERVIEW.md`
-- `docs/phases/phase3/P3-task1-done.md`
-- `docs/phases/phase3/P3-task2-done.md`
+- `docs/docs/completedphases/phase3/PHASE3_OVERVIEW.md`
+- `docs/docs/completedphases/phase3/P3-task1-done.md`
+- `docs/docs/completedphases/phase3/P3-task2-done.md`
 - `backend/app/api/routes/ships.py` (existing stub routes)
 - `backend/app/core/models.py` (Ship model)
 - `backend/app/services/ais_service.py` (fetch_ship_details function)

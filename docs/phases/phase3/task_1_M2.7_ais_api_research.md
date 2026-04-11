@@ -33,7 +33,7 @@ You are M2.7 (coordinator). Read these files first:
    - Note rate limits
    - Verify: Test the API with a live request. If it doesn't work, try the next option until one succeeds.
 
-5. **Create completion summary** at `phases/phase3/P3-task1-done.md`:
+5. **Create completion summary** at `docs/completedphases/phase3/P3-task1-done.md`:
    - Which API was chosen and why
    - Verified endpoint + parameters
    - Sample response snippet (clean, truncated)
@@ -49,7 +49,7 @@ You are M2.7 (coordinator). Read these files first:
 ## Output Files to Modify
 
 - `docs/DATA_SOURCES.md` (update maritime section)
-- `phases/phase3/P3-task1-done.md` (create — completion summary)
+- `docs/completedphases/phase3/P3-task1-done.md` (create — completion summary)
 
 ## Verification
 
