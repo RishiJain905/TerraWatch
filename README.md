@@ -2,7 +2,7 @@
 
 > Live Geospatial Intelligence Platform — planes, ships, and world events on a 3D globe
 
-![Phase](https://img.shields.io/badge/Phase-2_complete-blue)
+![Phase](https://img.shields.io/badge/Phase-3_in_progress-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ## What is TerraWatch?
@@ -37,6 +37,18 @@ Phase 2 added real ADSB plane data end-to-end:
 - [x] Integration tests (7/7 passing)
 
 See [docs/phases/phase2/](docs/phases/phase2/) for task breakdown.
+
+**Phase 3 of 7 — Live Ship Tracking (In Progress)**
+
+Phase 3 adds real AIS ship data end-to-end:
+- [ ] AIS API integration (TBD by Task 1)
+- [ ] Background scheduler (60s refresh)
+- [ ] WebSocket broadcast for ship updates
+- [ ] Directional ship icons on globe, color-coded by type
+- [ ] Click-to-inspect ship info panel
+- [ ] Integration tests
+
+See [docs/phases/phase3/](docs/phases/phase3/) for task breakdown.
 
 **Next: Phase 3 — Ship Tracking**
 
