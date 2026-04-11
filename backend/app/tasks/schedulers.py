@@ -11,6 +11,7 @@ from app.api.websocket import (
 )
 from app.config import settings
 from app.core.database import (
+    db_write_guard,
     delete_old_planes,
     delete_old_ships,
     open_db_connection,
@@ -90,14 +91,15 @@ async def refresh_ships_once() -> list[dict]:
     """Fetch, persist, clean up, and broadcast a single ship snapshot."""
     ships = await fetch_ships()
 
-    async with open_db_connection() as db:
-        try:
-            await upsert_ships(db, ships, commit=False)
-            deleted_ids = await delete_old_ships(db, max_age_minutes=SHIP_STALE_AGE_MINUTES, commit=False)
-            await db.commit()
-        except Exception:
-            await db.rollback()
-            raise
+    async with db_write_guard():
+        async with open_db_connection() as db:
+            try:
+                await upsert_ships(db, ships, commit=False)
+                deleted_ids = await delete_old_ships(db, max_age_minutes=SHIP_STALE_AGE_MINUTES, commit=False)
+                await db.commit()
+            except Exception:
+                await db.rollback()
+                raise
 
     await _broadcast_ship_messages(ships, deleted_ids)
 

@@ -1,14 +1,5 @@
 import './ShipInfoPanel.css'
-
-const TYPE_COLORS = {
-  cargo: '#4A90D9',
-  tanker: '#F5A623',
-  passenger: '#7ED321',
-  fishing: '#9013FE',
-  other: '#999999',
-  tug: '#999999',
-  sailing: '#999999',
-}
+import { SHIP_TYPE_COLORS } from '../../utils/shipIcons'
 
 function formatSpeed(speed) {
   if (!speed && speed !== 0) return '—'
@@ -45,7 +36,7 @@ function formatLastSeen(timestamp) {
 export default function ShipInfoPanel({ ship, onClose }) {
   if (!ship) return null
 
-  const typeColor = TYPE_COLORS[ship.ship_type] || TYPE_COLORS.other
+  const typeColor = SHIP_TYPE_COLORS[ship.ship_type]?.hex || SHIP_TYPE_COLORS.other?.hex
 
   return (
     <div className="ship-info-panel">

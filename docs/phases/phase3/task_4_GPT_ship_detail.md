@@ -30,7 +30,7 @@ async def get_ship(mmsi: str):
 
 - Fetch ship by `id` (MMSI) from the database
 - Return `Ship` model or `None` if not found
-- Return HTTP 200 with ship data, or HTTP 404 if not found
+- Return HTTP 200 with ship data, or HTTP 200 with `null` if not found
 
 ### 2. Existing GET /api/ships
 

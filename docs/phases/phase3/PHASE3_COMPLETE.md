@@ -60,7 +60,7 @@ backend/tests/
 ├── test_ais_service.py          — 5 tests
 ├── test_database_and_scheduler.py — 21 tests (planes + ships)
 ├── test_plane_routes.py         — 4 tests
-├── test_ship_routes.py          — 4 tests
+├── test_ship_routes.py          — 5 tests
 ```
 
 ### Phase 3 integration tests (new):
@@ -90,7 +90,7 @@ All Phase 2 plane tests continue to pass — no regression.
 | File | Description |
 |------|-------------|
 | `backend/tests/test_ship_integration.py` | Phase 3 integration test suite |
-| `docs/phases/phase3/P3-task1-done.md` | Task 1 completion summary |
+| `phases/phase3/P3-task1-done.md` | Task 1 completion summary |
 | `phases/phase3/p3-task2-done.md` | Task 2 completion summary |
 | `phases/phase3/p3-task3-done.md` | Task 3 completion summary |
 | `phases/phase3/p3-task4-done.md` | Task 4 completion summary |
