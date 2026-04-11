@@ -36,6 +36,32 @@ _PLANE_UPSERT_SQL = """
         timestamp = excluded.timestamp
 """
 
+_SHIP_COLUMN_DEFINITIONS = {
+    "id": "TEXT PRIMARY KEY",
+    "lat": "REAL",
+    "lon": "REAL",
+    "heading": "REAL DEFAULT 0",
+    "speed": "REAL DEFAULT 0",
+    "name": "TEXT DEFAULT ''",
+    "destination": "TEXT DEFAULT ''",
+    "ship_type": "TEXT DEFAULT ''",
+    "timestamp": "TEXT",
+}
+
+_SHIP_UPSERT_SQL = """
+    INSERT INTO ships (id, lat, lon, heading, speed, name, destination, ship_type, timestamp)
+    VALUES (:id, :lat, :lon, :heading, :speed, :name, :destination, :ship_type, :timestamp)
+    ON CONFLICT(id) DO UPDATE SET
+        lat = excluded.lat,
+        lon = excluded.lon,
+        heading = excluded.heading,
+        speed = excluded.speed,
+        name = excluded.name,
+        destination = excluded.destination,
+        ship_type = excluded.ship_type,
+        timestamp = excluded.timestamp
+"""
+
 
 async def _connect_db() -> aiosqlite.Connection:
     db = await aiosqlite.connect(DATABASE_PATH)
@@ -198,6 +224,7 @@ async def init_db() -> None:
             )
             """
         )
+        await _ensure_table_columns(db, "ships", _SHIP_COLUMN_DEFINITIONS, skip_columns={"id"})
 
         await db.execute(
             """
@@ -297,5 +324,83 @@ async def delete_old_planes(
     if deleted_ids:
         placeholders = ", ".join("?" for _ in deleted_ids)
         await db.execute(f"DELETE FROM planes WHERE id IN ({placeholders})", deleted_ids)
+
+    return deleted_ids
+
+
+async def upsert_ship(
+    db: aiosqlite.Connection,
+    ship: dict,
+    *,
+    commit: bool = True,
+) -> None:
+    """Insert or update a single ship row using the repo contract."""
+    await upsert_ships(db, [ship], commit=commit)
+
+
+async def upsert_ships(
+    db: aiosqlite.Connection,
+    ships: list[dict],
+    *,
+    commit: bool = True,
+) -> None:
+    """Insert or update ship rows using a single batched statement."""
+    if commit:
+        async with db_write_guard():
+            await upsert_ships(db, ships, commit=False)
+            await db.commit()
+        return
+
+    if not ships:
+        return
+
+    normalized_ships = []
+    for ship in ships:
+        normalized_ships.append(
+            {
+                "id": ship["id"],
+                "lat": ship.get("lat"),
+                "lon": ship.get("lon"),
+                "heading": ship.get("heading", 0),
+                "speed": ship.get("speed", 0),
+                "name": ship.get("name", ""),
+                "destination": ship.get("destination", ""),
+                "ship_type": ship.get("ship_type", ""),
+                "timestamp": ship.get("timestamp"),
+            }
+        )
+
+    await db.executemany(_SHIP_UPSERT_SQL, normalized_ships)
+
+
+async def delete_old_ships(
+    db: aiosqlite.Connection,
+    max_age_minutes: int = 10,
+    *,
+    commit: bool = True,
+) -> list[str]:
+    """Delete stale ships and return the deleted ship ids."""
+    if commit:
+        async with db_write_guard():
+            deleted_ids = await delete_old_ships(db, max_age_minutes=max_age_minutes, commit=False)
+            await db.commit()
+            return deleted_ids
+
+    async with db.execute(
+        """
+        SELECT id
+        FROM ships
+        WHERE timestamp IS NULL
+           OR julianday(timestamp) IS NULL
+           OR julianday(timestamp) < julianday('now', '-' || ? || ' minutes')
+        ORDER BY id
+        """,
+        (max_age_minutes,),
+    ) as cursor:
+        deleted_ids = [row[0] for row in await cursor.fetchall()]
+
+    if deleted_ids:
+        placeholders = ", ".join("?" for _ in deleted_ids)
+        await db.execute(f"DELETE FROM ships WHERE id IN ({placeholders})", deleted_ids)
 
     return deleted_ids

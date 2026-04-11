@@ -71,6 +71,30 @@ async def broadcast_plane_batch(planes: list[dict]) -> None:
     await broadcast(message)
 
 
+async def broadcast_ship_update(ship: dict, *, action: str | None = "upsert") -> None:
+    """Broadcast a single ship payload that matches the frontend contract."""
+    message = {
+        "type": "ship",
+        "data": ship,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    if action is not None:
+        message["action"] = action
+
+    await broadcast(message)
+
+
+async def broadcast_ship_batch(ships: list[dict]) -> None:
+    """Broadcast all ship upserts in a single WebSocket message."""
+    message = {
+        "type": "ship_batch",
+        "action": "upsert",
+        "data": ships,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    await broadcast(message)
+
+
 async def send_heartbeat(websocket: WebSocket, *, status: str | None = None) -> bool:
     payload = {}
     if status is not None:
