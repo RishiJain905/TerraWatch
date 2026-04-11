@@ -2,7 +2,7 @@
 
 ## Phase Goal
 
-Get real ADSB plane data flowing end-to-end: ADSB Exchange API → FastAPI backend → WebSocket → deck.gl globe.
+Get real ADSB plane data flowing end-to-end: OpenSky Network API → FastAPI backend → WebSocket → deck.gl globe.
 
 By end of Phase 2:
 - Planes appear as directional icons on the globe with real callsigns
@@ -57,10 +57,10 @@ ADSB Exchange API
 ## Key Technical Decisions
 
 ### ADSB Exchange API
-- Endpoint: `https://public-api.adsbexchange.com/VirtualRadar/AircraftList.json`
-- No API key required
-- Returns `acList` array with fields: `Icao`, `Lat`, `Lon`, `Alt`, `Track`, `Speed`, `Call`, `Squawk`
-- Parse `Icao` as hex string, `Call` as callsign
+- Endpoint: `https://opensky-network.org/api/states/all`
+- No API key required (anonymous access)
+- Returns `states` array with 17-element arrays: `[icao24, callsign, origin_country, time_position, last_contact, lon, lat, baro_altitude, on_ground, velocity, heading, ...]`
+- Parse `icao24` as hex string (lowercase), `callsign` as callsign (strip whitespace)
 
 ### Plane Icon Representation
 - Use IconLayer with aircraft icon
@@ -90,15 +90,15 @@ ADSB Exchange API
 ### Database Schema (existing — verify)
 ```sql
 CREATE TABLE planes (
-    icao24 TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY,
     callsign TEXT,
     lat REAL,
     lon REAL,
-    alt INTEGER,
-    heading REAL,
-    speed REAL,
-    squawk TEXT,
-    last_seen TIMESTAMP
+    alt INTEGER DEFAULT 0,
+    heading REAL DEFAULT 0,
+    speed REAL DEFAULT 0,
+    squawk TEXT DEFAULT '',
+    timestamp TEXT
 );
 ```
 
@@ -106,7 +106,7 @@ CREATE TABLE planes (
 
 ## Success Criteria
 
-- [ ] `curl https://public-api.adsbexchange.com/VirtualRadar/AircraftList.json` returns plane data
+- [ ] `curl https://opensky-network.org/api/states/all` returns plane data
 - [ ] adsb_service correctly parses response to Plane dict
 - [ ] /api/planes returns planes from database
 - [ ] /ws broadcasts plane updates every 30 seconds

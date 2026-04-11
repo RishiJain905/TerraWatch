@@ -3,7 +3,7 @@ import DeckGL from '@deck.gl/react'
 import { _GlobeView as GlobeView } from '@deck.gl/core'
 import { TileLayer } from '@deck.gl/geo-layers'
 import { ScatterplotLayer, IconLayer, BitmapLayer } from '@deck.gl/layers'
-import { createPlaneIcon } from '../../utils/planeIcons'
+import { getPlaneIcon } from '../../utils/planeIcons'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import { usePlanes } from '../../hooks/usePlanes'
 import { useShips } from '../../hooks/useShips'
@@ -74,12 +74,7 @@ export default function Globe({ layers, onEntityClick }) {
         id: 'planes-layer',
         data: planes,
         pickable: true,
-        getIcon: d => ({
-          url: createPlaneIcon(d.alt),
-          width: 64,
-          height: 64,
-          anchorY: 32,
-        }),
+        getIcon: d => getPlaneIcon(d.alt),
         getPosition: d => [d.lon, d.lat],
         getSize: 48,
         getAngle: d => -(d.heading || 0),

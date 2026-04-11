@@ -35,13 +35,8 @@ export function usePlanes() {
   }, [])
 
   const addPlanes = useCallback((incomingPlanes) => {
-    setPlanes(prev => {
-      const map = new Map(prev.map(p => [p.id, p]))
-      for (const plane of incomingPlanes) {
-        map.set(plane.id, plane)
-      }
-      return Array.from(map.values())
-    })
+    // plane_batch is authoritative — replace entirely, don't merge
+    setPlanes(incomingPlanes)
   }, [])
 
   const removePlane = useCallback((planeId) => {

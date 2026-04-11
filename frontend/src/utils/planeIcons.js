@@ -1,4 +1,4 @@
-export function createPlaneIcon(altitude) {
+function createPlaneIcon(altitude) {
   let color
   if (altitude < 10000) {
     color = '0, 255, 100'
@@ -13,4 +13,20 @@ export function createPlaneIcon(altitude) {
 </svg>`
 
   return `data:image/svg+xml;base64,${btoa(svgString)}`
+}
+
+// Pre-computed icon objects — one per altitude band — so IconLayer never
+// regenerates identical base64 SVGs on every render / per-plane call.
+const LOW_ICON = { url: createPlaneIcon(0), width: 64, height: 64, anchorY: 32 }
+const MED_ICON = { url: createPlaneIcon(15000), width: 64, height: 64, anchorY: 32 }
+const HIGH_ICON = { url: createPlaneIcon(35000), width: 64, height: 64, anchorY: 32 }
+
+/**
+ * Return a cached icon descriptor for the given altitude.
+ * Bands: low < 10 000 ft | medium 10 000–30 000 ft | high > 30 000 ft
+ */
+export function getPlaneIcon(alt) {
+  if (alt < 10000) return LOW_ICON
+  if (alt < 30000) return MED_ICON
+  return HIGH_ICON
 }
