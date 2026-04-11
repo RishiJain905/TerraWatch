@@ -24,7 +24,7 @@ Modified:
 - `backend/tests/test_database_and_scheduler.py`
 
 Created:
-- `phases/phase3/p3-task3-done.md`
+- `docs/completedphases/phase3/p3-task3-done.md`
 
 ---
 
@@ -120,10 +120,10 @@ Added functions:
 A few repo/spec mismatches were reconciled during implementation:
 
 1. The live task file is:
-   - `phases/phase3/task_3_GPT_ship_scheduler_ws.md`
+   - `docs/completedphases/phase3/task_3_GPT_ship_scheduler_ws.md`
    not `task_3_GPT_ship_scheduler.md`
 
-2. The spec referenced prior summaries under `docs/phases/...`, but the live completion artifacts are under `phases/phase3/`.
+2. The spec referenced prior summaries under `docs/completedphases/...`, but the live completion artifacts are under `docs/completedphases/phase3/`.
    The live repo files were treated as the source of truth.
 
 3. The spec mentioned `SHIP_REFRESH_INTERVAL_SECONDS`, but the live config already has:

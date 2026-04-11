@@ -56,8 +56,8 @@ This intentionally collapses upstream codes like tug/sailing into `other` so lat
 
 A few spec/docs mismatches were reconciled during implementation:
 
-1. Task 2 references `docs/phases/phase3/P3-task1-done.md`, but the live completion summary is actually at:
-   - `phases/phase3/P3-task1-done.md`
+1. Task 2 references `docs/completedphases/phase3/P3-task1-done.md`, but the live completion summary is actually at:
+   - `docs/completedphases/phase3/P3-task1-done.md`
 
 2. The heading source was slightly inconsistent across the docs:
    - `DATA_SOURCES.md` emphasized `cog`
@@ -132,7 +132,7 @@ Modified:
 
 Created:
 - `backend/tests/test_ais_service.py`
-- `phases/phase3/p3-task2-done.md`
+- `docs/completedphases/phase3/p3-task2-done.md`
 
 ---
 

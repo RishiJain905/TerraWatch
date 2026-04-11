@@ -8,9 +8,9 @@ Task 2 implemented `ais_service.py` with real AIS data fetching. This task wires
 
 You are GPT 5.4 (backend specialist). Read these files first:
 - `docs/ARCHITECTURE.md`
-- `docs/phases/phase3/PHASE3_OVERVIEW.md`
-- `docs/phases/phase3/P3-task1-done.md`
-- `docs/phases/phase3/P3-task2-done.md`
+- `docs/completedphases/phase3/PHASE3_OVERVIEW.md`
+- `docs/completedphases/phase3/P3-task1-done.md`
+- `docs/completedphases/phase3/P3-task2-done.md`
 - `backend/app/tasks/schedulers.py` (existing — plane scheduler is there, ships is placeholder)
 - `backend/app/api/websocket.py` (existing — plane broadcast is there)
 - `backend/app/services/ais_service.py` (from Task 2)

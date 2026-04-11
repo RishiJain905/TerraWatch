@@ -23,7 +23,7 @@ mkdir -p backend/app/{api/routes,core,services,tasks}
 mkdir -p frontend/src/{components/{Globe/layers,Sidebar,Header,common},hooks,services,utils}
 mkdir -p docker
 mkdir -p docs
-mkdir -p phases/phase1
+mkdir -p docs/completedphases/phase1
 mkdir -p scripts
 ```
 

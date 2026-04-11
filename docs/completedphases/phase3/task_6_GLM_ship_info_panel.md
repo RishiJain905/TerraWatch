@@ -8,8 +8,8 @@ Ships now appear on the globe with directional icons. Clicking a ship should sho
 
 You are GLM 5.1 (frontend specialist). Read these files first:
 - `docs/ARCHITECTURE.md`
-- `docs/phases/phase3/PHASE3_OVERVIEW.md`
-- `docs/phases/phase3/P3-task5-done.md`
+- `docs/completedphases/phase3/PHASE3_OVERVIEW.md`
+- `docs/completedphases/phase3/P3-task5-done.md`
 - `frontend/src/components/PlaneInfoPanel/PlaneInfoPanel.jsx` (reference implementation)
 - `frontend/src/components/PlaneInfoPanel/PlaneInfoPanel.css` (reference styles)
 - `frontend/src/components/Globe/Globe.jsx` (where ship click is handled)
