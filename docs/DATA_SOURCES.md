@@ -76,35 +76,150 @@ Sample API response:
 
 ## Maritime Data
 
-### ORVRTS (Open Vessel Registration and Tracking System)
+### Digitraffic (Finland) — PRIMARY API
 
-**What it is:** Free AIS (Automatic Identification System) feed aggregator. AIS transponders are legally required on most large vessels and broadcast position data.
+**What it is:** Finnish Fintraffic/Digitraffic provides free AIS data from the Nordic/Baltic region via a REST API. AIS transponders are legally required on most large vessels and broadcast position data.
 
-**Website:** https://www.orvrts.com/ or https://www.vesselfinder.com/
+**Website:** https://www.digitraffic.fi/meriliikenne/
 
-**Free tier:** Limited queries, but sufficient for demo/V1 purposes.
+**Coverage:** Northern Europe — primarily Finnish and Baltic Sea waters (approximately 54–66°N, 10–37°E). Not global. ~18,000 vessels at any time.
 
-**Alternative — AISHub:**
+**No API key required.** Free for non-commercial use.
+
+**Important:** This API requires `Accept-Encoding: gzip` header on every request. Python users: use `httpx` with compression enabled, or curl with `--compressed`.
+
+---
+
+**Endpoint 1 — Vessel Positions (GeoJSON):**
 ```
-http://www.aishub.net/api
+https://meri.digitraffic.fi/api/ais/v1/locations
 ```
-Free API with registration required. Provides MMSI, position, heading, speed, destination.
 
-**Alternative — MarineTraffic (free tier):**
-```
-https://www.marinetraffic.com/
-```
-Free tier has rate limits but gives position + vessel details.
+Returns a GeoJSON FeatureCollection. Each feature has `geometry.coordinates` [lon, lat] and `properties` with sog, cog, heading, navStat, timestamp.
 
-**Data provided:**
-- MMSI (Maritime Mobile Service Identity)
+**Endpoint 2 — Vessel Metadata:**
+```
+https://meri.digitraffic.fi/api/ais/v1/vessels
+```
+
+Returns a JSON array of vessel metadata objects with name, destination, shipType code, imo, callSign, draught, eta.
+
+**Implementation strategy:** Fetch both endpoints. Merge by MMSI — locations provide positions/speed/heading, vessels provide name/destination/ship_type. For best data richness, do two sequential fetch calls every 60s.
+
+**Sample position response** (`/api/ais/v1/locations`):
+```json
+{
+  "type": "FeatureCollection",
+  "dataUpdatedTime": "2026-04-11T01:44:52Z",
+  "features": [
+    {
+      "mmsi": 219598000,
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [20.85169, 55.770832] },
+      "properties": {
+        "mmsi": 219598000,
+        "sog": 0.1,
+        "cog": 346.5,
+        "heading": 79,
+        "navStat": 1,
+        "rot": 4,
+        "posAcc": true,
+        "raim": true,
+        "timestamp": 59,
+        "timestampExternal": 1659212938646
+      }
+    }
+  ]
+}
+```
+
+**Sample metadata response** (`/api/ais/v1/vessels`):
+```json
+[
+  {
+    "mmsi": 219598000,
+    "name": "NORD SUPERIOR",
+    "callSign": "OWPA2",
+    "imo": 9692129,
+    "destination": "NL AMS",
+    "draught": 118,
+    "eta": 416128,
+    "shipType": 80,
+    "posType": 1
+  }
+]
+```
+
+**AIS shipType code → ship_type string mapping** (implement in ais_service.py):
+| Code | ship_type | Example |
+|------|-----------|---------|
+| 70 | cargo | Bulk carriers, container ships |
+| 80 | tanker | Oil/chemical tankers |
+| 60 | passenger | Ferries, cruise ships |
+| 52 | tug | Tugboats |
+| 31 | tug | Towing operations |
+| 90 | other | Unspecified vessel types |
+| 33 | other | Dredging vessels |
+| 35 | other | Military vessels |
+| 36 | sailing | Sailing vessels |
+| 37 | other | Pleasure craft |
+| 30 | fishing | Fishing vessels |
+| 51 | other | Search and rescue |
+| 40 | other | High speed craft |
+| 50 | other | Pilot vessels |
+| 0 | other | Not available / unknown |
+
+**Unit conversions:**
+- sog (speed over ground): already in knots — use directly
+- cog (course over ground): degrees, 0=North, 90=East — use directly as `heading`
+- No altitude field (AIS is 2D)
+
+**Rate limits:** cache-control: max-age=60. Safe to poll every 60 seconds.
+
+**Verified:** Tested 2026-04-11. Returns 18,247 vessels in Finnish/Baltic waters. Requires `Accept-Encoding: gzip`.
+
+---
+
+### AISHub (Reciprocal Data Exchange)
+
+**What it is:** Aggregated AIS data shared by contributors who run AIS receivers and share their feed. You must share your own AIS feed to access the aggregated data.
+
+**Endpoint:** https://www.aishub.net/api
+
+**Status:** Requires registration and reciprocal AIS feed contribution. Not immediately usable without hardware.
+
+---
+
+### AISStream.io (WebSocket — Future Option)
+
+**What it is:** Global AIS data via WebSocket. Requires free API key signup at https://aisstream.io/ (GitHub OAuth).
+
+**Endpoint:** `wss://stream.aisstream.io/v0/stream`
+
+**Status:** Not implemented in V1. Requires API key and WebSocket client instead of simple REST polling. Global coverage is a future upgrade path.
+
+---
+
+### MarineTraffic (Not Recommended for V1)
+
+**Status:** Free tier is heavily rate-limited. The public-facing site requires JavaScript rendering and is not suitable for direct API access in V1.
+
+---
+
+### ORVRTS / VesselFinder
+
+**Status:** These are primarily paid aggregators. Free tiers are insufficient for programmatic V1 use. Deprecated from DATA_SOURCES.md.
+
+---
+
+**Data provided by Digitraffic:**
+- MMSI (Maritime Mobile Service Identity) — used as ship `id`
+- Position (lon, lat via GeoJSON coordinates)
+- Heading (cog — course over ground, in degrees)
+- Speed (sog — speed over ground, in knots)
 - Ship name
-- Position (lat, lon)
-- Heading and speed
 - Destination port
-- Ship type (cargo, tanker, passenger, etc.)
-
-**Rate limits:** Check each provider. ORVRTS is most generous for free.
+- Ship type (numeric AIS code → mapped to string)
 
 ---
 
@@ -203,7 +318,7 @@ No API key needed for basic usage.
 | Source | V1 Refresh Rate | Method |
 |--------|----------------|--------|
 | OpenSky Network | Every 30 seconds | asyncio scheduler |
-| AIS/ORVRTS | Every 60 seconds | BackgroundTask scheduler |
+| AIS/Digitraffic (Finland) | Every 60 seconds | BackgroundTask scheduler (httpx, gzip) |
 | GDELT | Every hour | Scheduled job (downloading latest export) |
 | ACLED | Once per day | Manual/scheduled CSV refresh |
 
