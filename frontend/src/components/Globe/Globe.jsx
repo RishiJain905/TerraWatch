@@ -2,7 +2,8 @@ import { useState, useCallback } from 'react'
 import DeckGL from '@deck.gl/react'
 import { _GlobeView as GlobeView } from '@deck.gl/core'
 import { TileLayer } from '@deck.gl/geo-layers'
-import { ScatterplotLayer } from '@deck.gl/layers'
+import { ScatterplotLayer, IconLayer, BitmapLayer } from '@deck.gl/layers'
+import { getPlaneIcon } from '../../utils/planeIcons'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import { usePlanes } from '../../hooks/usePlanes'
 import { useShips } from '../../hooks/useShips'
@@ -23,17 +24,25 @@ const COLORS = {
 
 export default function Globe({ layers, onEntityClick }) {
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE)
-  const { planes, addPlane } = usePlanes()
+  const { planes, addPlane, addPlanes, removePlane } = usePlanes()
   const { ships, addShip } = useShips()
 
   // Handle WebSocket messages
   const handleWSMessage = useCallback((msg) => {
     if (msg.type === 'plane') {
+      if (msg.action === 'remove' && msg.data?.id) {
+        removePlane(msg.data.id)
+        return
+      }
       addPlane(msg.data)
+    } else if (msg.type === 'plane_batch') {
+      if (msg.data && Array.isArray(msg.data)) {
+        addPlanes(msg.data)
+      }
     } else if (msg.type === 'ship') {
       addShip(msg.data)
     }
-  }, [addPlane, addShip])
+  }, [addPlane, addPlanes, addShip, removePlane])
 
   const { connected } = useWebSocket(handleWSMessage)
 
@@ -45,30 +54,32 @@ export default function Globe({ layers, onEntityClick }) {
     maxZoom: 19,
     tileSize: 256,
     pickable: false,
+    renderSubLayers: (props) => {
+      const { boundingBox } = props.tile
+      return new BitmapLayer(props, {
+        data: undefined,
+        image: props.data,
+        bounds: [boundingBox[0][0], boundingBox[0][1], boundingBox[1][0], boundingBox[1][1]],
+      })
+    },
   })
 
   // Build deck.gl layers
   const deckLayers = [tileLayer]
 
-  // Plane layer
+  // Plane layer — directional icons
   if (layers && layers.planes) {
     deckLayers.push(
-      new ScatterplotLayer({
+      new IconLayer({
         id: 'planes-layer',
         data: planes,
         pickable: true,
-        opacity: 0.9,
-        stroked: true,
-        filled: true,
-        radiusScale: 1,
-        radiusMinPixels: 4,
-        radiusMaxPixels: 20,
-        lineWidthMinPixels: 1,
+        getIcon: d => getPlaneIcon(d.alt),
         getPosition: d => [d.lon, d.lat],
-        getRadius: d => 100,
-        getFillColor: COLORS.plane,
-        getLineColor: [255, 255, 255],
+        getSize: 48,
+        getAngle: d => -(d.heading || 0),
         onClick: (info) => onEntityClick && onEntityClick('plane', info.object),
+        billboard: false,
       })
     )
   }
@@ -111,6 +122,11 @@ export default function Globe({ layers, onEntityClick }) {
         <span className={`ws-status ${connected ? 'connected' : 'disconnected'}`}>
           {connected ? '\u25CF Live' : '\u25CB Reconnecting'}
         </span>
+      </div>
+      <div className="globe-legend">
+        <div className="legend-item"><span className="legend-dot low"></span>Low (&lt;10k ft)</div>
+        <div className="legend-item"><span className="legend-dot medium"></span>Medium (10-30k ft)</div>
+        <div className="legend-item"><span className="legend-dot high"></span>High (&gt;30k ft)</div>
       </div>
     </div>
   )

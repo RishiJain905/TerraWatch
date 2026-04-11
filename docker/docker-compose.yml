@@ -30,6 +30,8 @@ services:
     working_dir: /app
     environment:
       - NODE_ENV=development
+      - VITE_PROXY_TARGET=http://backend:8000
+      - VITE_WS_PROXY_TARGET=ws://backend:8000
     depends_on:
       backend:
         condition: service_healthy

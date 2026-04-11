@@ -15,6 +15,7 @@ export function usePlanes() {
       setPlanes(data)
       setError(null)
     } catch (e) {
+      console.warn('Initial plane fetch failed, WS will populate:', e.message)
       setError(e.message)
     } finally {
       setLoading(false)
@@ -33,6 +34,11 @@ export function usePlanes() {
     })
   }, [])
 
+  const addPlanes = useCallback((incomingPlanes) => {
+    // plane_batch is authoritative — replace entirely, don't merge
+    setPlanes(incomingPlanes)
+  }, [])
+
   const removePlane = useCallback((planeId) => {
     setPlanes(prev => prev.filter(p => p.id !== planeId))
   }, [])
@@ -42,5 +48,5 @@ export function usePlanes() {
     fetchPlanes()
   }, [fetchPlanes])
 
-  return { planes, loading, error, fetchPlanes, addPlane, removePlane }
+  return { planes, loading, error, fetchPlanes, addPlane, addPlanes, removePlane }
 }
