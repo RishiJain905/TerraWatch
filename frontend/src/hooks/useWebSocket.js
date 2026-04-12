@@ -8,7 +8,10 @@ export function useWebSocket(onMessage) {
   const wsRef = useRef(null)
   const onMessageRef = useRef(onMessage)
   const reconnectTimerRef = useRef(null)
-  const shouldReconnect = useRef(true)
+  // Generation counter: each connect() call increments this.
+  // Cleanup only closes the WS if the generation still matches —
+  // prevents React StrictMode / hot-reload from killing the NEW connection.
+  const generationRef = useRef(0)
 
   // Keep onMessage ref current
   useEffect(() => {
@@ -16,7 +19,7 @@ export function useWebSocket(onMessage) {
   }, [onMessage])
 
   const connect = useCallback(() => {
-    if (!shouldReconnect.current) return
+    const gen = ++generationRef.current
 
     try {
       const ws = new WebSocket(WS_URL)
@@ -28,7 +31,8 @@ export function useWebSocket(onMessage) {
 
       ws.onclose = () => {
         setConnected(false)
-        if (shouldReconnect.current) {
+        // Only reconnect if this is still the active generation
+        if (generationRef.current === gen) {
           console.log('[WS] Disconnected, reconnecting in 3s...')
           reconnectTimerRef.current = setTimeout(connect, 3000)
         }
@@ -53,17 +57,18 @@ export function useWebSocket(onMessage) {
       wsRef.current = ws
     } catch (e) {
       console.error('[WS] Connection failed:', e)
-      if (shouldReconnect.current) {
+      if (generationRef.current === gen) {
         reconnectTimerRef.current = setTimeout(connect, 3000)
       }
     }
   }, [])
 
   useEffect(() => {
-    shouldReconnect.current = true
     connect()
     return () => {
-      shouldReconnect.current = false
+      // Increment generation so stale reconnect timers and onclose
+      // handlers know they're outdated and don't fire.
+      generationRef.current++
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current)
       }
