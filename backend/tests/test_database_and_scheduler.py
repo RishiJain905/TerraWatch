@@ -7,7 +7,7 @@ from unittest.mock import ANY, AsyncMock, patch
 
 import aiosqlite
 
-from app.core import database
+from app.core import database, dedup as dedup_core
 from app.tasks import schedulers
 
 
@@ -336,7 +336,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         database.DATABASE_PATH = self.original_database_path
         self.temp_dir.cleanup()
 
-    async def test_refresh_planes_once_persists_planes_cleans_stale_rows_and_broadcasts_plane_upserts_and_removes(self):
+    async def test_refresh_planes_once_merges_dual_sources_persists_planes_cleans_stale_rows_and_broadcasts_plane_upserts_and_removes(self):
         db = await database.get_db()
         stale_timestamp = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
         await database.upsert_plane(
@@ -354,17 +354,17 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
             },
         )
 
-        planes = [
+        open_sky_planes = [
             {
                 "id": "abc123",
                 "lat": 10.0,
                 "lon": 20.0,
                 "alt": 1000,
                 "heading": 90.0,
-                "callsign": "TEST123",
+                "callsign": "OPEN-OLDER",
                 "squawk": "7000",
                 "speed": 250.0,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": (datetime.now(timezone.utc) - timedelta(seconds=30)).isoformat(),
             },
             {
                 "id": "def456",
@@ -372,33 +372,165 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
                 "lon": 21.0,
                 "alt": 2000,
                 "heading": 180.0,
-                "callsign": "TEST456",
+                "callsign": "OPEN-ONLY",
                 "squawk": "7700",
                 "speed": 350.0,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         ]
+        adsblol_planes = [
+            {
+                "id": "ABC123",
+                "lat": 10.5,
+                "lon": 20.5,
+                "alt": 1100,
+                "heading": 95.0,
+                "callsign": "ADSB-NEWER",
+                "squawk": "7001",
+                "speed": 255.0,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+            {
+                "id": "GHI789",
+                "lat": 12.0,
+                "lon": 22.0,
+                "alt": 3000,
+                "heading": 270.0,
+                "callsign": "ADSB-ONLY",
+                "squawk": "6600",
+                "speed": 410.0,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        ]
+        expected_planes = dedup_core.deduplicate_planes(open_sky_planes, adsblol_planes)
 
-        with patch("app.tasks.schedulers.fetch_planes", AsyncMock(return_value=planes)), patch(
-            "app.tasks.schedulers.broadcast_plane_batch", AsyncMock()
-        ) as batch_mock, patch(
+        with patch("app.tasks.schedulers.fetch_planes", AsyncMock(return_value=open_sky_planes)), patch(
+            "app.tasks.schedulers.fetch_adsblol_planes", AsyncMock(return_value=adsblol_planes)
+        ), patch("app.tasks.schedulers.broadcast_plane_batch", AsyncMock()) as batch_mock, patch(
             "app.tasks.schedulers.broadcast_plane_update", AsyncMock()
         ) as broadcast_mock:
             refreshed_planes = await schedulers.refresh_planes_once()
 
-        async with db.execute("SELECT id FROM planes ORDER BY id") as cursor:
-            stored_ids = [row[0] for row in await cursor.fetchall()]
+        async with db.execute("SELECT id, callsign FROM planes ORDER BY id") as cursor:
+            stored_rows = [tuple(row) for row in await cursor.fetchall()]
 
-        self.assertEqual(refreshed_planes, planes)
-        self.assertEqual(stored_ids, ["abc123", "def456"])
-        # Upserts are now sent as a single batch message
-        batch_mock.assert_awaited_once_with(planes)
-        # Removes are still sent individually
+        self.assertEqual(refreshed_planes, expected_planes)
+        self.assertEqual(
+            stored_rows,
+            [
+                ("abc123", "ADSB-NEWER"),
+                ("def456", "OPEN-ONLY"),
+                ("ghi789", "ADSB-ONLY"),
+            ],
+        )
+        batch_mock.assert_awaited_once_with(expected_planes)
         broadcast_mock.assert_has_awaits(
             [
                 unittest.mock.call({"id": "old-plane"}, action="remove"),
             ]
         )
+
+    async def test_refresh_planes_once_filters_stale_source_records_before_persist_and_broadcast(self):
+        db = await database.get_db()
+        now = datetime.now(timezone.utc)
+        open_sky_planes = [
+            {
+                "id": "abc123",
+                "lat": 50.0,
+                "lon": 10.0,
+                "alt": 9000,
+                "heading": 45.0,
+                "callsign": "OPEN-FRESH",
+                "squawk": "1111",
+                "speed": 220.0,
+                "timestamp": (now - timedelta(seconds=20)).isoformat(),
+            },
+            {
+                "id": "stale-open",
+                "lat": 51.0,
+                "lon": 11.0,
+                "alt": 9100,
+                "heading": 50.0,
+                "callsign": "OPEN-STALE",
+                "squawk": "1112",
+                "speed": 225.0,
+                "timestamp": (now - timedelta(minutes=6)).isoformat(),
+            },
+        ]
+        adsblol_planes = [
+            {
+                "id": "ABC123",
+                "lat": 50.5,
+                "lon": 10.5,
+                "alt": 9200,
+                "heading": 55.0,
+                "callsign": "ADSB-WINNER",
+                "squawk": "2221",
+                "speed": 230.0,
+                "timestamp": (now - timedelta(seconds=5)).isoformat(),
+            },
+            {
+                "id": "STALE-ADSB",
+                "lat": 52.0,
+                "lon": 12.0,
+                "alt": 9300,
+                "heading": 60.0,
+                "callsign": "ADSB-STALE",
+                "squawk": "2222",
+                "speed": 235.0,
+                "timestamp": (now - timedelta(minutes=6)).isoformat(),
+            },
+        ]
+        expected_planes = dedup_core.deduplicate_planes(open_sky_planes, adsblol_planes)
+
+        with patch("app.tasks.schedulers.fetch_planes", AsyncMock(return_value=open_sky_planes)), patch(
+            "app.tasks.schedulers.fetch_adsblol_planes", AsyncMock(return_value=adsblol_planes)
+        ), patch("app.tasks.schedulers.broadcast_plane_batch", AsyncMock()) as batch_mock, patch(
+            "app.tasks.schedulers.broadcast_plane_update", AsyncMock()
+        ) as broadcast_mock:
+            refreshed_planes = await schedulers.refresh_planes_once()
+
+        async with db.execute("SELECT id, callsign FROM planes ORDER BY id") as cursor:
+            stored_rows = [tuple(row) for row in await cursor.fetchall()]
+
+        self.assertEqual(refreshed_planes, expected_planes)
+        self.assertEqual(stored_rows, [("abc123", "ADSB-WINNER")])
+        self.assertEqual([plane["id"] for plane in refreshed_planes], ["abc123"])
+        batch_mock.assert_awaited_once_with(expected_planes)
+        broadcast_mock.assert_not_awaited()
+
+    async def test_refresh_planes_once_falls_back_to_single_source_when_other_plane_source_fails(self):
+        db = await database.get_db()
+        adsblol_planes = [
+            {
+                "id": "ABC123",
+                "lat": 10.5,
+                "lon": 20.5,
+                "alt": 1100,
+                "heading": 95.0,
+                "callsign": "ADSB-ONLY",
+                "squawk": "7001",
+                "speed": 255.0,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        ]
+        expected_planes = dedup_core.deduplicate_planes([], adsblol_planes)
+
+        with patch("app.tasks.schedulers.fetch_planes", AsyncMock(side_effect=RuntimeError("opensky boom"))), patch(
+            "app.tasks.schedulers.fetch_adsblol_planes", AsyncMock(return_value=adsblol_planes)
+        ), patch("app.tasks.schedulers.broadcast_plane_batch", AsyncMock()) as batch_mock, patch(
+            "app.tasks.schedulers.broadcast_plane_update", AsyncMock()
+        ) as broadcast_mock, patch("app.tasks.schedulers.logger.warning") as warning_mock:
+            refreshed_planes = await schedulers.refresh_planes_once()
+
+        async with db.execute("SELECT id, callsign FROM planes ORDER BY id") as cursor:
+            stored_rows = [tuple(row) for row in await cursor.fetchall()]
+
+        self.assertEqual(refreshed_planes, expected_planes)
+        self.assertEqual(stored_rows, [("abc123", "ADSB-ONLY")])
+        batch_mock.assert_awaited_once_with(expected_planes)
+        broadcast_mock.assert_not_awaited()
+        warning_mock.assert_called_once()
 
     async def test_refresh_planes_once_rolls_back_failed_write_batch_and_leaves_state_unchanged(self):
         db = await database.get_db()
@@ -430,8 +562,10 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         ]
 
         with patch("app.tasks.schedulers.fetch_planes", AsyncMock(return_value=incoming_planes)), patch(
-            "app.tasks.schedulers.delete_old_planes", AsyncMock(side_effect=RuntimeError("boom"))
-        ), patch("app.tasks.schedulers.broadcast_plane_update", AsyncMock()):
+            "app.tasks.schedulers.fetch_adsblol_planes", AsyncMock(return_value=[])
+        ), patch("app.tasks.schedulers.delete_old_planes", AsyncMock(side_effect=RuntimeError("boom"))), patch(
+            "app.tasks.schedulers.broadcast_plane_update", AsyncMock()
+        ):
             with self.assertRaises(RuntimeError):
                 await schedulers.refresh_planes_once()
 
@@ -455,17 +589,20 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         ]
+        expected_planes = dedup_core.deduplicate_planes(planes, [])
         shared_get_db_mock = AsyncMock(side_effect=AssertionError("shared get_db should not be used"))
 
         with patch("app.tasks.schedulers.fetch_planes", AsyncMock(return_value=planes)), patch(
-            "app.tasks.schedulers.get_db", shared_get_db_mock, create=True
-        ), patch("app.tasks.schedulers.broadcast_plane_update", AsyncMock()):
+            "app.tasks.schedulers.fetch_adsblol_planes", AsyncMock(return_value=[])
+        ), patch("app.tasks.schedulers.get_db", shared_get_db_mock, create=True), patch(
+            "app.tasks.schedulers.broadcast_plane_update", AsyncMock()
+        ):
             refreshed_planes = await schedulers.refresh_planes_once()
 
         async with db.execute("SELECT id FROM planes ORDER BY id") as cursor:
             stored_ids = [row[0] for row in await cursor.fetchall()]
 
-        self.assertEqual(refreshed_planes, planes)
+        self.assertEqual(refreshed_planes, expected_planes)
         self.assertEqual(stored_ids, ["writer-plane"])
         shared_get_db_mock.assert_not_awaited()
 
@@ -512,6 +649,8 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
             },
         ]
 
+        expected_ships = dedup_core.deduplicate_ships(ships, [])
+
         with patch("app.tasks.schedulers.fetch_ships", AsyncMock(return_value=ships)), patch(
             "app.tasks.schedulers.broadcast_ship_batch", AsyncMock()
         ) as batch_mock, patch(
@@ -522,9 +661,9 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         async with db.execute("SELECT id FROM ships ORDER BY id") as cursor:
             stored_ids = [row[0] for row in await cursor.fetchall()]
 
-        self.assertEqual(refreshed_ships, ships)
+        self.assertEqual(refreshed_ships, expected_ships)
         self.assertEqual(stored_ids, ["219598000", "230000001"])
-        batch_mock.assert_awaited_once_with(ships)
+        batch_mock.assert_awaited_once_with(expected_ships)
         broadcast_mock.assert_has_awaits(
             [
                 unittest.mock.call({"id": "old-ship"}, action="remove"),
@@ -545,6 +684,22 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         await database.upsert_ship(db, existing_ship)
+        schedulers._latest_digitraffic_ships = {existing_ship["id"]: existing_ship}
+        schedulers._latest_aisstream_ships = {
+            "cached-ais": {
+                "id": "cached-ais",
+                "lat": 61.0,
+                "lon": 25.0,
+                "heading": 90.0,
+                "speed": 7.5,
+                "name": "CACHED AIS",
+                "destination": "SE STO",
+                "ship_type": "other",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        }
+        original_digitraffic = dict(schedulers._latest_digitraffic_ships)
+        original_aisstream = dict(schedulers._latest_aisstream_ships)
 
         incoming_ships = [
             {
@@ -570,6 +725,8 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
             rows = [dict(row) for row in await cursor.fetchall()]
 
         self.assertEqual(rows, [existing_ship])
+        self.assertEqual(schedulers._latest_digitraffic_ships, original_digitraffic)
+        self.assertEqual(schedulers._latest_aisstream_ships, original_aisstream)
 
     async def test_refresh_ships_once_uses_dedicated_connection_instead_of_shared_get_db(self):
         db = await database.get_db()
@@ -586,6 +743,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         ]
+        expected_ships = dedup_core.deduplicate_ships(ships, [])
         shared_get_db_mock = AsyncMock(side_effect=AssertionError("shared get_db should not be used"))
 
         with patch("app.tasks.schedulers.fetch_ships", AsyncMock(return_value=ships)), patch(
@@ -596,9 +754,36 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         async with db.execute("SELECT id FROM ships ORDER BY id") as cursor:
             stored_ids = [row[0] for row in await cursor.fetchall()]
 
-        self.assertEqual(refreshed_ships, ships)
+        self.assertEqual(refreshed_ships, expected_ships)
         self.assertEqual(stored_ids, ["writer-ship"])
         shared_get_db_mock.assert_not_awaited()
+
+    async def test_refresh_ships_once_retains_previous_digitraffic_snapshot_when_fetch_returns_empty(self):
+        previous_digitraffic_ship = {
+            "id": "111000111",
+            "lat": 60.0,
+            "lon": 24.0,
+            "heading": 90.0,
+            "speed": 12.0,
+            "name": "PREVIOUS DIGITRAFFIC",
+            "destination": "FI HEL",
+            "ship_type": "cargo",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        schedulers._latest_digitraffic_ships = {previous_digitraffic_ship["id"]: previous_digitraffic_ship}
+        expected_ships = dedup_core.deduplicate_ships([previous_digitraffic_ship], [])
+
+        with patch("app.tasks.schedulers.fetch_ships", AsyncMock(return_value=[])), patch(
+            "app.tasks.schedulers.broadcast_ship_batch", AsyncMock()
+        ) as batch_mock, patch("app.tasks.schedulers.broadcast_ship_update", AsyncMock()), patch(
+            "app.tasks.schedulers.logger.warning"
+        ) as warning_mock:
+            refreshed_ships = await schedulers.refresh_ships_once()
+
+        self.assertEqual(refreshed_ships, expected_ships)
+        self.assertEqual(schedulers._latest_digitraffic_ships, {previous_digitraffic_ship["id"]: previous_digitraffic_ship})
+        batch_mock.assert_awaited_once_with(expected_ships)
+        warning_mock.assert_called_once()
 
     async def test_refresh_ships_once_merges_cached_aisstream_ships_with_latest_digitraffic_snapshot(self):
         db = await database.get_db()
@@ -641,19 +826,20 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
             duplicate_aisstream_ship["id"]: duplicate_aisstream_ship,
             unique_aisstream_ship["id"]: unique_aisstream_ship,
         }
+        expected_ships = dedup_core.deduplicate_ships(
+            [digitraffic_ship],
+            [duplicate_aisstream_ship, unique_aisstream_ship],
+        )
 
         with patch("app.tasks.schedulers.fetch_ships", AsyncMock(return_value=[digitraffic_ship])), patch(
-            "app.tasks.schedulers.broadcast_ship_batch", AsyncMock()
-        ) as batch_mock, patch("app.tasks.schedulers.broadcast_ship_update", AsyncMock()):
+            "app.tasks.schedulers.deduplicate_ships", wraps=dedup_core.deduplicate_ships
+        ) as dedup_mock, patch("app.tasks.schedulers.broadcast_ship_batch", AsyncMock()) as batch_mock, patch(
+            "app.tasks.schedulers.broadcast_ship_update", AsyncMock()
+        ):
             merged_ships = await schedulers.refresh_ships_once()
 
-        self.assertEqual(
-            merged_ships,
-            [
-                digitraffic_ship,
-                unique_aisstream_ship,
-            ],
-        )
+        self.assertEqual(merged_ships, expected_ships)
+        dedup_mock.assert_called_once_with([digitraffic_ship], [duplicate_aisstream_ship, unique_aisstream_ship])
         batch_mock.assert_awaited_once_with(merged_ships)
 
         async with db.execute("SELECT id, name, destination FROM ships ORDER BY id") as cursor:
@@ -668,7 +854,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_ingest_aisstream_batch_prefers_newer_timestamp_and_merges_missing_metadata(self):
-        base_timestamp = datetime.now(timezone.utc)
+        base_timestamp = datetime.now(timezone.utc) - timedelta(minutes=2)
         digitraffic_ship = {
             "id": "333000333",
             "lat": 62.0,
@@ -692,29 +878,63 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
             "ship_type": "other",
             "timestamp": (base_timestamp + timedelta(minutes=1)).isoformat(),
         }
+        expected_ships = dedup_core.deduplicate_ships([digitraffic_ship], [aisstream_ship])
 
-        with patch("app.tasks.schedulers.broadcast_ship_batch", AsyncMock()) as batch_mock, patch(
-            "app.tasks.schedulers.broadcast_ship_update", AsyncMock()
-        ):
+        with patch("app.tasks.schedulers.deduplicate_ships", wraps=dedup_core.deduplicate_ships) as dedup_mock, patch(
+            "app.tasks.schedulers.broadcast_ship_batch", AsyncMock()
+        ) as batch_mock, patch("app.tasks.schedulers.broadcast_ship_update", AsyncMock()):
             merged_ships = await schedulers.ingest_aisstream_batch([aisstream_ship])
 
-        self.assertEqual(
-            merged_ships,
-            [
-                {
-                    "id": "333000333",
-                    "lat": 62.5,
-                    "lon": 26.5,
-                    "heading": 55.0,
-                    "speed": 11.0,
-                    "name": "AISSTREAM WINNER",
-                    "destination": "FI TKU",
-                    "ship_type": "cargo",
-                    "timestamp": aisstream_ship["timestamp"],
-                }
-            ],
-        )
+        self.assertEqual(merged_ships, expected_ships)
+        dedup_mock.assert_called_once_with([digitraffic_ship], [aisstream_ship])
         batch_mock.assert_awaited_once_with(merged_ships)
+
+    async def test_ingest_aisstream_batch_rolls_back_cache_when_persist_fails(self):
+        base_timestamp = datetime.now(timezone.utc) - timedelta(minutes=2)
+        digitraffic_ship = {
+            "id": "333000333",
+            "lat": 62.0,
+            "lon": 26.0,
+            "heading": 45.0,
+            "speed": 10.0,
+            "name": "DIGITRAFFIC",
+            "destination": "FI TKU",
+            "ship_type": "cargo",
+            "timestamp": base_timestamp.isoformat(),
+        }
+        existing_aisstream_ship = {
+            "id": "444000444",
+            "lat": 63.0,
+            "lon": 27.0,
+            "heading": 90.0,
+            "speed": 8.0,
+            "name": "CACHED AIS",
+            "destination": "SE STO",
+            "ship_type": "tanker",
+            "timestamp": base_timestamp.isoformat(),
+        }
+        schedulers._latest_digitraffic_ships = {digitraffic_ship["id"]: digitraffic_ship}
+        schedulers._latest_aisstream_ships = {existing_aisstream_ship["id"]: existing_aisstream_ship}
+        original_digitraffic = dict(schedulers._latest_digitraffic_ships)
+        original_aisstream = dict(schedulers._latest_aisstream_ships)
+        incoming_aisstream_ship = {
+            "id": "555000555",
+            "lat": 64.0,
+            "lon": 28.0,
+            "heading": 120.0,
+            "speed": 9.0,
+            "name": "NEW AIS",
+            "destination": "EE TLL",
+            "ship_type": "other",
+            "timestamp": (base_timestamp + timedelta(minutes=1)).isoformat(),
+        }
+
+        with patch("app.tasks.schedulers._persist_and_broadcast_ships", AsyncMock(side_effect=RuntimeError("boom"))):
+            with self.assertRaises(RuntimeError):
+                await schedulers.ingest_aisstream_batch([incoming_aisstream_ship])
+
+        self.assertEqual(schedulers._latest_digitraffic_ships, original_digitraffic)
+        self.assertEqual(schedulers._latest_aisstream_ships, original_aisstream)
 
     async def test_plane_fetch_loop_recovers_after_refresh_failure(self):
         refresh_mock = AsyncMock(side_effect=[RuntimeError("boom"), asyncio.CancelledError()])
@@ -743,6 +963,36 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(refresh_mock.await_count, 2)
         sleep_mock.assert_awaited_once_with(0)
         log_exception_mock.assert_called_once()
+
+    async def test_aisstream_listener_loop_retries_after_listen_failure(self):
+        class FakeAisstreamService:
+            def __init__(self, *, batches=None, error: Exception | None = None):
+                self.api_key = "test-key"
+                self._batches = list(batches or [])
+                self._error = error
+                self.close = AsyncMock()
+
+            async def listen(self, batch_interval=schedulers.AISSTREAM_BATCH_INTERVAL_SECONDS):
+                if self._error is not None:
+                    error = self._error
+                    self._error = None
+                    raise error
+                for batch in self._batches:
+                    yield batch
+
+        initial_service = FakeAisstreamService(error=RuntimeError("boom"))
+        recovery_service = FakeAisstreamService(batches=[[{"id": "111000111", "timestamp": datetime.now(timezone.utc).isoformat()}]])
+        sleep_mock = AsyncMock(return_value=None)
+
+        with patch("app.tasks.schedulers.AisstreamService", return_value=recovery_service), patch(
+            "app.tasks.schedulers.asyncio.sleep", sleep_mock
+        ), patch("app.tasks.schedulers.ingest_aisstream_batch", AsyncMock()) as ingest_mock:
+            await schedulers.aisstream_listener_loop(batch_interval_seconds=0, service=initial_service)
+
+        sleep_mock.assert_awaited_once_with(1)
+        initial_service.close.assert_awaited()
+        recovery_service.close.assert_awaited()
+        ingest_mock.assert_awaited_once_with(recovery_service._batches[0])
 
     async def test_start_and_stop_schedulers_manage_background_tasks(self):
         plane_started = asyncio.Event()
@@ -837,6 +1087,91 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.wait_for(ship_cancelled.wait(), timeout=1)
         await asyncio.wait_for(aisstream_cancelled.wait(), timeout=1)
         self.assertEqual(schedulers.get_scheduler_tasks(), [])
+
+    async def test_start_schedulers_restarts_missing_aisstream_task_without_duplicating_others(self):
+        plane_started_count = 0
+        ship_started_count = 0
+        aisstream_started_count = 0
+        plane_started = asyncio.Event()
+        ship_started = asyncio.Event()
+        aisstream_started = asyncio.Event()
+        plane_cancelled = asyncio.Event()
+        ship_cancelled = asyncio.Event()
+        aisstream_cancelled = asyncio.Event()
+
+        async def fake_plane_loop(interval_seconds=schedulers.PLANE_REFRESH_INTERVAL_SECONDS):
+            nonlocal plane_started_count
+            plane_started_count += 1
+            plane_started.set()
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                plane_cancelled.set()
+                raise
+
+        async def fake_ship_loop(interval_seconds=schedulers.SHIP_REFRESH_INTERVAL_SECONDS):
+            nonlocal ship_started_count
+            ship_started_count += 1
+            ship_started.set()
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                ship_cancelled.set()
+                raise
+
+        async def fake_aisstream_loop(*, batch_interval_seconds=schedulers.AISSTREAM_BATCH_INTERVAL_SECONDS, service=None):
+            nonlocal aisstream_started_count
+            aisstream_started_count += 1
+            aisstream_started.set()
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                aisstream_cancelled.set()
+                raise
+
+        fake_service = AsyncMock()
+        fake_service.close = AsyncMock()
+
+        with patch.object(schedulers.settings, "AISSTREAM_API_KEY", "test-key"), patch(
+            "app.tasks.schedulers.plane_fetch_loop", fake_plane_loop
+        ), patch("app.tasks.schedulers.ships_refresh_loop", fake_ship_loop), patch(
+            "app.tasks.schedulers.aisstream_listener_loop", fake_aisstream_loop
+        ), patch("app.tasks.schedulers.AisstreamService", return_value=fake_service):
+            tasks = await schedulers.start_schedulers(
+                interval_seconds=0,
+                ship_interval_seconds=0,
+                aisstream_batch_interval_seconds=0,
+            )
+            await asyncio.wait_for(plane_started.wait(), timeout=1)
+            await asyncio.wait_for(ship_started.wait(), timeout=1)
+            await asyncio.wait_for(aisstream_started.wait(), timeout=1)
+            self.assertEqual(len(tasks), 3)
+            self.assertEqual(plane_started_count, 1)
+            self.assertEqual(ship_started_count, 1)
+            self.assertEqual(aisstream_started_count, 1)
+
+            aisstream_started.clear()
+            aisstream_task = next(task for task in schedulers.get_scheduler_tasks() if task.get_name() == "aisstream-listener-loop")
+            aisstream_task.cancel()
+            await asyncio.gather(aisstream_task, return_exceptions=True)
+
+            tasks = await schedulers.start_schedulers(
+                interval_seconds=0,
+                ship_interval_seconds=0,
+                aisstream_batch_interval_seconds=0,
+            )
+            await asyncio.wait_for(aisstream_started.wait(), timeout=1)
+            self.assertEqual(len(tasks), 3)
+            self.assertEqual(plane_started_count, 1)
+            self.assertEqual(ship_started_count, 1)
+            self.assertEqual(aisstream_started_count, 2)
+
+            await schedulers.stop_schedulers()
+
+        fake_service.close.assert_awaited()
+        await asyncio.wait_for(plane_cancelled.wait(), timeout=1)
+        await asyncio.wait_for(ship_cancelled.wait(), timeout=1)
+        await asyncio.wait_for(aisstream_cancelled.wait(), timeout=1)
 
 
 class MainLifespanTests(unittest.IsolatedAsyncioTestCase):
