@@ -2,14 +2,14 @@
 
 ## Goal
 
-Expand TerraWatch's live data coverage by adding secondary free API sources for both planes and ships, without removing existing sources. Implement smart deduplication to merge data from multiple providers into a single unified view.
+Expand TerraWatch's live data coverage by adding secondary free API sources for both planes and ships, without removing existing sources. Implement smart deduplication to merge data from multiple providers into a single unified view while preserving the existing backend payload contracts.
 
 ---
 
 ## Motivation
 
-- **Planes:** OpenSky has sparse coverage over Africa, Middle East, Canada, Russia, and ocean expanses. ADSB.lol aggregates data from a different volunteer feeder network, potentially filling gaps in some regions.
-- **Ships:** Digitraffic covers only Nordic/Baltic seas (~1,000-2,000 ships). AIS Friends has global coverage through community AIS feeders (~5,000+ vessels), which would dramatically increase visible ship traffic.
+- **Planes:** OpenSky has sparse coverage over Africa, the Middle East, Canada, Russia, and ocean expanses. ADSB.lol aggregates data from a different volunteer feeder network and can fill gaps in some regions.
+- **Ships:** Digitraffic covers only Nordic/Baltic waters. aisstream.io adds a global WebSocket-based AIS feed, dramatically increasing visible ship traffic while keeping Digitraffic's richer regional metadata.
 
 ---
 
@@ -20,30 +20,32 @@ Expand TerraWatch's live data coverage by adding secondary free API sources for 
 1. **Add ADSB.lol as a second plane source**
    - Endpoint: `GET https://api.adsb.lol/aircraft/json` (no API key required)
    - Merge with existing OpenSky data
-   - Deduplicate by `icao24` (hex ICAO code)
+   - Deduplicate by `icao24` / plane `id`
 
-2. **Add AIS Friends as a second ship source**
-   - Endpoint: `GET https://www.aisfriends.com/api/public/v1/vessels/bbox`
-   - Requires free Bearer token (user registers at aisfriends.com)
-   - Merge with existing Digitraffic data
-   - Deduplicate by `mmsi`
+2. **Add aisstream.io as a second ship source**
+   - Endpoint: `wss://stream.aisstream.io/v0/stream`
+   - Requires free `AISSTREAM_API_KEY`
+   - Maintain a persistent WebSocket listener
+   - Merge streamed ship batches with the latest Digitraffic snapshot
+   - Deduplicate by `mmsi` / ship `id`
 
 3. **Deduplication strategy**
-   - Per-source: filter stale entries before merge
-   - Cross-source: prefer more recent `timestamp`, fall back to source priority
-   - Unified DB schema that tracks source attribution
+   - Per-source stale cleanup before merge
+   - Cross-source: prefer the more recent `timestamp`
+   - On timestamp ties, prefer Digitraffic
+   - Merge safe missing metadata from the losing record into the winner
 
 4. **Verification and testing**
-   - Backend tests for deduplication logic
-   - Integration tests confirming both sources feed into WebSocket
-   - No regression in existing Phase 2/3 tests
+   - Backend tests for ship deduplication and aisstream parsing/listener behavior
+   - Scheduler tests confirming Digitraffic polling and aisstream batch merge behavior
+   - No regression in existing backend contracts
 
 ### What is out of scope
 
 - Removing OpenSky or Digitraffic (both remain active)
 - Historical data (only live tracking)
 - Changing frontend visualization logic
-- Authentication flow for AIS Friends token (user provides via env var)
+- Live validation without a real `AISSTREAM_API_KEY`
 
 ---
 
@@ -53,16 +55,16 @@ Expand TerraWatch's live data coverage by adding secondary free API sources for 
 
 - **Endpoint:** `GET https://api.adsb.lol/aircraft/json`
 - **Auth:** None
-- **Key field:** `hex` (lowercase, normalize to uppercase for matching)
+- **Key field:** `hex` (normalize to plane `id`)
 - **Refresh:** 30s
 
-### AIS Friends — Ships
+### aisstream.io — Ships
 
-- **Endpoint:** `GET https://www.aisfriends.com/api/public/v1/vessels/bbox`
-- **Auth:** Bearer token (free registration at aisfriends.com)
-- **Key field:** `mmsi`
-- **Limits:** 1 req/min, max 1,000 vessels per response
-- **Refresh:** 60s (respect rate limit)
+- **Endpoint:** `wss://stream.aisstream.io/v0/stream`
+- **Auth:** `APIKey` field in the initial subscription payload
+- **Key field:** `MMSI` / `UserID`
+- **Transport:** Persistent WebSocket, not REST polling
+- **Batching:** Buffer updates by MMSI and emit every 30 seconds
 
 ---
 
@@ -75,26 +77,26 @@ Expand TerraWatch's live data coverage by adding secondary free API sources for 
 3. Build a map keyed by `icao24`
 4. If an `icao24` exists in both sources:
    - Use the entry with the more recent `timestamp` or `time_position`
-   - If timestamps are equal/missing, prefer OpenSky (source priority)
-5. Mark each entry with its source(s) for debugging/attribution
+   - If timestamps are equal or missing, prefer OpenSky
 
 ### Ships
 
-1. Fetch from Digitraffic (source A) and AIS Friends (source B) in parallel
-2. Build a map keyed by `mmsi`
-3. If an `mmsi` exists in both sources:
-   - Use the entry with the more recent `timestamp`
-   - If timestamps are equal, prefer Digitraffic (richer vessel metadata)
-4. Merge attributes from both where missing
+1. Poll Digitraffic to maintain the latest regional snapshot
+2. Listen to aisstream continuously and accumulate the latest streamed ship record per MMSI
+3. Merge both sources by ship `id`
+4. If an `id` exists in both sources:
+   - Use the record with the more recent `timestamp`
+   - If timestamps are equal, prefer Digitraffic
+   - Merge safe missing metadata (`name`, `destination`, `ship_type`, etc.) from the loser when useful
 
 ### Stale Entry Cleanup
 
-- OpenSky: entries with `time_position` older than 5 minutes are stale
-- ADSB.lol: entries without recent update are stale
+- OpenSky: entries older than 5 minutes are stale
+- ADSB.lol: entries without a recent update are stale
 - Digitraffic: entries older than 10 minutes are stale
-- AIS Friends: entries older than 10 minutes are stale
+- aisstream: cached streamed entries older than 10 minutes are stale
 
-Apply per-source cleanup **before** deduplication.
+Apply per-source cleanup before cross-source deduplication.
 
 ---
 
@@ -103,9 +105,9 @@ Apply per-source cleanup **before** deduplication.
 | # | Agent | Task |
 |---|-------|------|
 | 1 | GPT | ADSB.lol service — fetch, normalize, model |
-| 2 | GPT | AIS Friends service — fetch, normalize, model |
-| 3 | GPT | Deduplication logic — planes and ships |
-| 4 | M2.7 | Scheduler updates + integration + tests |
+| 2 | GPT | aisstream service — websocket connect/listen/map/normalize |
+| 3 | GPT | Ship deduplication rules in scheduler layer |
+| 4 | M2.7 | Scheduler integration + tests + docs |
 
 ---
 
@@ -115,31 +117,29 @@ Apply per-source cleanup **before** deduplication.
 backend/app/
 ├── services/
 │   ├── adsb_service.py         (existing)
-│   ├── ais_service.py          (existing)
-│   ├── adsblol_service.py      NEW
-│   └── ais_friends_service.py  NEW
-├── core/
-│   ├── database.py             (existing)
-│   ├── models.py               (existing)
-│   └── dedup.py                NEW
+│   ├── ais_service.py          (existing Digitraffic)
+│   ├── adsblol_service.py      (existing)
+│   └── aisstream_service.py    NEW
 ├── tasks/
 │   └── schedulers.py           UPDATE
 └── config.py                   UPDATE
 
-.env.example                     UPDATE
+backend/tests/
+├── test_database_and_scheduler.py  UPDATE
+└── test_aisstream_service.py       NEW
+
+.env.example                         UPDATE
 ```
 
 ---
 
 ## Verification Checklist
 
-- [ ] ADSB.lol service fetches and parses correctly
-- [ ] AIS Friends service fetches and parses correctly (with token)
-- [ ] Plane deduplication — no overlap pollution, stale entries filtered
-- [ ] Ship deduplication — no overlap pollution, stale entries filtered
-- [ ] WebSocket broadcasts combined plane set
-- [ ] WebSocket broadcasts combined ship set
-- [ ] Frontend receives more planes than before
-- [ ] Frontend receives more ships than before
-- [ ] All Phase 2/3 tests still pass
-- [ ] New deduplication unit tests pass
+- [x] ADSB.lol service fetches and parses correctly
+- [x] aisstream service connects and sends the required subscription payload
+- [x] Wrapped aisstream `PositionReport` messages normalize to the existing `Ship` contract
+- [x] Ship deduplication prefers newer timestamps and Digitraffic on ties
+- [x] Scheduler merges Digitraffic snapshots with cached aisstream state
+- [x] WebSocket broadcasts the merged ship set
+- [x] Backend still runs without `AISSTREAM_API_KEY` (Digitraffic-only fallback)
+- [x] All backend tests pass
