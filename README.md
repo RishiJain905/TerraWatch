@@ -1,20 +1,27 @@
 # TerraWatch
 
-> Live Geospatial Intelligence Platform — planes, ships, and world events on a 3D globe
+> Real-time GEOINT platform — track planes, ships, and world events on a 3D globe
 
 ![Phase](https://img.shields.io/badge/Phase-3_Complete-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-## What is TerraWatch?
+## What Problem Does TerraWatch Solve?
 
-TerraWatch is a real-time GEOINT (Geospatial Intelligence) platform inspired by Palantir. It visualizes global activity — aircraft, maritime vessels, and world events — on an interactive 3D globe that runs entirely in your browser.
+TerraWatch provides real-time situational awareness of global mobility — who is moving, where, and why. Built for:
+
+- **Logistics** — monitor supply chain routes, port activity, and fleet positions in real time
+- **Defense & security** — track air and maritime activity across regions of interest
+- **Maritime safety** — monitor vessel traffic, collisions risk, and search and rescue operations
+- **OSINT & research** — open-source intelligence on global movement patterns
+
+Unlike expensive enterprise platforms, TerraWatch runs entirely in your browser using free APIs.
 
 **Core Features:**
-- Real-time aircraft tracking via ADS-B (OpenSky Network)
-- Real-time maritime vessel tracking via AIS (Digitraffic — Nordic/Baltic coverage)
-- World event monitoring (GDELT) — *Phase 4*
-- Conflict zone visualization (ACLED) — *Phase 4*
-- Intelligence alerting — *Phase 6*
+- Real-time aircraft tracking via ADS-B (OpenSky Network — global, ~12,000 aircraft)
+- Real-time maritime vessel tracking via AIS (Digitraffic — Nordic/Baltic, ~1,000–2,000 ships)
+- World event monitoring (GDELT) — V2
+- Conflict zone visualization (ACLED) — V2
+- Intelligence alerting — V3
 
 ---
 
@@ -94,39 +101,38 @@ Mutually exclusive w/ plane panel"]
 
 ## Current Status
 
-| Phase | Name | Status |
-|-------|------|--------|
-| 1 | Foundation Setup | Complete |
-| 2 | Live Aircraft Tracking | Complete |
-| 3 | Live Ship Tracking | Complete |
-| 4–7 | Events / Conflicts / Alerting | Planned |
+| Phase | Name | Status | Key Deliverables |
+|-------|------|--------|------------------|
+| 1 | Foundation Setup | Complete | FastAPI backend, React + deck.gl frontend, Docker Compose, REST API + WebSocket pipeline |
+| 2 | Live Aircraft Tracking | Complete | OpenSky integration (~12,000 aircraft), 30s refresh, directional icons, PlaneInfoPanel |
+| 3 | Live Ship Tracking | Complete | Digitraffic integration (Nordic/Baltic), 60s refresh, type-colored icons, ShipInfoPanel, mutual exclusion |
+| 4–7 | Events / Conflicts / Alerting | Planned | GDELT events, ALED conflict heatmap, zone alerting, production hardening |
 
-### Phase 1 — Foundation Setup (Complete)
+### Phase 1 — Foundation Setup
 
 - FastAPI backend with WebSocket support
 - React + deck.gl frontend with 3D globe
 - Docker Compose orchestration with healthchecks
 - REST API and WebSocket data pipeline
 
-### Phase 2 — Live Aircraft Tracking (Complete)
+### Phase 2 — Live Aircraft Tracking
 
 - OpenSky Network API integration (~12,000 aircraft)
 - Background scheduler (30s refresh)
 - WebSocket broadcast to all connected clients
 - Directional plane icons on globe, color-coded by altitude
 - Click-to-inspect PlaneInfoPanel (callsign, altitude, speed, heading)
-- Integration tests: 7/7 passing
+- Comprehensive backend test suite
 
-### Phase 3 — Live Ship Tracking (Complete)
+### Phase 3 — Live Ship Tracking
 
 - Digitraffic AIS API integration (Nordic/Baltic coverage)
 - Background scheduler (60s refresh)
 - WebSocket broadcast for ship updates (batch + individual)
-- Directional ship icons on globe, color-coded by type (cargo/tanker/passenger/fishing)
+- Directional ship icons on globe, color-coded by type
 - Click-to-inspect ShipInfoPanel (name, MMSI, heading, speed, destination)
 - PlaneInfoPanel and ShipInfoPanel are mutually exclusive
-- Integration tests: 10/10 passing
-- **Total backend test suite: 57/57 passing**
+- Comprehensive backend test suite
 
 ---
 
@@ -134,7 +140,7 @@ Mutually exclusive w/ plane panel"]
 
 ### Option 1 — Docker (Recommended)
 
-**Prerequisites:** Docker + Docker Compose installed.
+**Prerequisites:** Docker + Docker Compose installed. Internet required for map tile loading.
 
 ```bash
 # Clone the repository
@@ -175,7 +181,7 @@ curl http://localhost:8000/api/ships
 
 ### Option 2 — Local Development
 
-**Prerequisites:** Python 3.12+, Node.js 22+, npm.
+**Prerequisites:** Python 3.12+, Node.js 22+, npm. Dedicated GPU recommended for 10,000+ planes.
 
 #### Backend
 
@@ -255,10 +261,10 @@ TerraWatch/
 │   │   │   └── websocket.py     # WebSocket /ws — broadcast_plane_batch/ship_batch
 │   │   ├── core/
 │   │   │   ├── database.py     # SQLite init, upsert/delete helpers, db_write_guard
-│   │   │   └── models.py        # Pydantic models: Plane, Ship, WSMessage
+│   │   │   └── models.py       # Pydantic models: Plane, Ship, WSMessage
 │   │   ├── services/
-│   │   │   ├── adsb_service.py  # OpenSky Network fetch + normalize
-│   │   │   └── ais_service.py   # Digitraffic AIS fetch + merge by MMSI
+│   │   │   ├── adsb_service.py # OpenSky Network fetch + normalize
+│   │   │   └── ais_service.py  # Digitraffic AIS fetch + merge by MMSI
 │   │   └── tasks/
 │   │       └── schedulers.py    # asyncio scheduler loops for planes + ships
 │   ├── requirements.txt
@@ -281,23 +287,19 @@ TerraWatch/
 │   │       ├── planeIcons.js   # Directional SVG plane icons (cached atlas)
 │   │       └── shipIcons.js    # Directional SVG ship icons (type-colored)
 │   ├── package.json
-│   ├── vite.config.js           # Vite + React plugin + /api + /ws proxy
+│   ├── vite.config.js          # Vite + React plugin + /api + /ws proxy
 │   └── Dockerfile
 │
 ├── docker/
 │   └── docker-compose.yml       # Backend + Frontend services, healthchecks
 │
-├── docs/                        # Architecture docs + phase completion summaries
+├── docs/                       # Architecture docs + phase completion summaries
 │   ├── ARCHITECTURE.md
 │   ├── DATA_SOURCES.md
 │   ├── API.md
 │   └── docs/completedphases/
 │       ├── phase2/
 │       └── phase3/
-│
-├── docs/completedphases/                      # Agent task specifications
-│   ├── phase2/
-│   └── phase3/
 │
 └── README.md
 ```
@@ -310,7 +312,7 @@ TerraWatch/
 |-------|------------|-------|
 | Frontend | React 18 + Vite | Fast HMR, ESBuild |
 | Globe | deck.gl `GlobeView` | WebGL, renders 10,000+ points |
-| Map Tile | Mapbox GL JS | `maplibre-gl` for tiles |
+| Map Tile | MapLibre GL JS | Open-source map tiles |
 | Backend | Python FastAPI | Async-native, auto OpenAPI docs |
 | Database | SQLite | File-based, zero config |
 | Real-time | FastAPI WebSockets | Native, no extra deps |
@@ -325,21 +327,21 @@ TerraWatch/
 
 TerraWatch is built by a multi-agent system:
 
-| Agent | Role | Responsibilities |
-|-------|------|-----------------|
-| **MiniMax M2.7** | Coordinator | Architecture, Docker, integration, PRs |
-| **GPT 5.4** | Backend | FastAPI routes, data services, schedulers, database |
-| **GLM 5.1** | Frontend | React, deck.gl layers, globe, info panels |
+| Agent | Role | Model |
+|-------|------|-------|
+| **Coordinator** | Architecture, Docker, integration, PRs | MiniMax M2.7 |
+| **Backend** | FastAPI routes, data services, schedulers, database | GLM 5.1 |
+| **Frontend** | React, deck.gl layers, globe, info panels | GLM 5.1 |
 
-Task files in `docs/completedphases/phaseX/` define implementation work for each agent. Agents read the task spec, implement the code, then document completion in the same file.
+Execution uses **Droid Missions** for structured multi-agent orchestration, or task-file-based dispatch for simpler phases.
 
 ### Version Roadmap
 
-| Version | Phases | Features |
-|---------|--------|---------|
-| **V1** | 1–3 | Live planes + ships on globe *(current)* |
-| **V2** | 4–5 | GDELT world events + ACLED conflict heatmap |
-| **V3** | 6–7 | Zone alerting + production hardening |
+| Version | Phases | Features | Status |
+|---------|--------|---------|--------|
+| **V1** | 1–3 | Live planes + ships on globe | **Current** |
+| **V2** | 4–5 | GDELT world events + ALED conflict heatmap | Planned |
+| **V3** | 6–7 | Zone alerting + production hardening | Planned |
 
 ---
 
@@ -386,12 +388,14 @@ Example ship_batch message:
 
 ## Data Sources
 
-| Source | Type | Coverage | Auth | Refresh |
-|--------|------|----------|------|---------|
-| [OpenSky Network](https://opensky-network.org/api/states/all) | Aircraft (ADS-B) | Global (~12,000 aircraft) | None | 30s |
-| [Digitraffic AIS](https://meri.digitraffic.fi/api/ais/v1/) | Ships (AIS) | Nordic/Baltic (~1,000–2,000 ships) | None | 60s |
-| [GDELT Project](https://www.gdeltproject.org/) | World Events | Global | None | 15 min |
-| [ACLED](https://acleddata.com/) | Conflicts | Global | Free registration | Daily |
+| Source | Type | Coverage | Auth | Status |
+|--------|------|----------|------|--------|
+| [OpenSky Network](https://opensky-network.org/api/states/all) | Aircraft (ADS-B) | Global (~12,000 aircraft) | None | Live |
+| [Digitraffic AIS](https://meri.digitraffic.fi/api/ais/v1/) | Ships (AIS) | Nordic/Baltic (~1,000–2,000 ships) | None | Live |
+| [GDELT Project](https://www.gdeltproject.org/) | World Events | Global | None | V2 (planned) |
+| [ACLED](https://acleddata.com/) | Conflicts | Global | Free registration | V2 (planned) |
+
+**Note:** ADS-B and AIS are public broadcast technologies — aircraft and vessels actively transmit their positions. This is established and legal in most jurisdictions.
 
 Digitraffic requires `Accept-Encoding: gzip` header. The backend handles this automatically.
 
