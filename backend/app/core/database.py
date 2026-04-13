@@ -86,31 +86,6 @@ _EVENT_UPSERT_SQL = """
         source_url = excluded.source_url
 """
 
-_CONFLICT_COLUMN_DEFINITIONS = {
-    "id": "TEXT PRIMARY KEY",
-    "date": "TEXT",
-    "lat": "REAL",
-    "lon": "REAL",
-    "event_type": "TEXT DEFAULT ''",
-    "fatalities": "INTEGER DEFAULT 0",
-    "country": "TEXT DEFAULT ''",
-    "region": "TEXT DEFAULT ''",
-    "timestamp": "TEXT",
-}
-
-_CONFLICT_UPSERT_SQL = """
-    INSERT INTO conflicts (id, date, lat, lon, event_type, fatalities, country, region, timestamp)
-    VALUES (:id, :date, :lat, :lon, :event_type, :fatalities, :country, :region, :timestamp)
-    ON CONFLICT(id) DO UPDATE SET
-        date = excluded.date,
-        lat = excluded.lat,
-        lon = excluded.lon,
-        event_type = excluded.event_type,
-        fatalities = excluded.fatalities,
-        country = excluded.country,
-        region = excluded.region,
-        timestamp = excluded.timestamp
-"""
 
 
 async def _connect_db() -> aiosqlite.Connection:
@@ -292,29 +267,10 @@ async def init_db() -> None:
         )
         await _ensure_table_columns(db, "events", _EVENT_COLUMN_DEFINITIONS, skip_columns={"id"})
 
-        await db.execute(
-            """
-            CREATE TABLE IF NOT EXISTS conflicts (
-                id TEXT PRIMARY KEY,
-                date TEXT,
-                lat REAL,
-                lon REAL,
-                event_type TEXT DEFAULT '',
-                fatalities INTEGER DEFAULT 0,
-                country TEXT DEFAULT '',
-                region TEXT DEFAULT '',
-                timestamp TEXT
-            )
-            """
-        )
-        await _ensure_table_columns(db, "conflicts", _CONFLICT_COLUMN_DEFINITIONS, skip_columns={"id"})
-
         await db.execute("CREATE INDEX IF NOT EXISTS idx_planes_timestamp ON planes(timestamp)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_ships_timestamp ON ships(timestamp)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_events_date ON events(date)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_events_location ON events(lat, lon)")
-        await db.execute("CREATE INDEX IF NOT EXISTS idx_conflicts_date ON conflicts(date)")
-        await db.execute("CREATE INDEX IF NOT EXISTS idx_conflicts_location ON conflicts(lat, lon)")
 
         await delete_old_planes(db, commit=False)
         await db.commit()
@@ -557,83 +513,5 @@ async def delete_old_events(
     if deleted_ids:
         placeholders = ", ".join("?" for _ in deleted_ids)
         await db.execute(f"DELETE FROM events WHERE id IN ({placeholders})", deleted_ids)
-
-    return deleted_ids
-
-
-async def upsert_conflict(
-    db: aiosqlite.Connection,
-    conflict: dict,
-    *,
-    commit: bool = True,
-) -> None:
-    """Insert or update a single conflict row using the repo contract."""
-    await upsert_conflicts(db, [conflict], commit=commit)
-
-
-async def upsert_conflicts(
-    db: aiosqlite.Connection,
-    conflicts: list[dict],
-    *,
-    commit: bool = True,
-) -> None:
-    """Insert or update conflict rows using a single batched statement."""
-    if commit:
-        async with db_write_guard():
-            await upsert_conflicts(db, conflicts, commit=False)
-            await db.commit()
-        return
-
-    if not conflicts:
-        return
-
-    normalized_conflicts = []
-    for conflict in conflicts:
-        normalized_conflicts.append(
-            {
-                "id": conflict["id"],
-                "date": conflict.get("date"),
-                "lat": conflict.get("lat"),
-                "lon": conflict.get("lon"),
-                "event_type": conflict.get("event_type", ""),
-                "fatalities": conflict.get("fatalities", 0),
-                "country": conflict.get("country", ""),
-                "region": conflict.get("region", ""),
-                "timestamp": conflict.get("timestamp"),
-            }
-        )
-
-    await db.executemany(_CONFLICT_UPSERT_SQL, normalized_conflicts)
-
-
-async def delete_old_conflicts(
-    db: aiosqlite.Connection,
-    max_age_days: int = 30,
-    *,
-    commit: bool = True,
-) -> list[str]:
-    """Delete stale conflicts older than max_age_days and return the deleted conflict ids."""
-    if commit:
-        async with db_write_guard():
-            deleted_ids = await delete_old_conflicts(db, max_age_days=max_age_days, commit=False)
-            await db.commit()
-            return deleted_ids
-
-    async with db.execute(
-        """
-        SELECT id
-        FROM conflicts
-        WHERE date IS NULL
-           OR julianday(date) IS NULL
-           OR julianday(date) < julianday('now', '-' || ? || ' days')
-        ORDER BY id
-        """,
-        (max_age_days,),
-    ) as cursor:
-        deleted_ids = [row[0] for row in await cursor.fetchall()]
-
-    if deleted_ids:
-        placeholders = ", ".join("?" for _ in deleted_ids)
-        await db.execute(f"DELETE FROM conflicts WHERE id IN ({placeholders})", deleted_ids)
 
     return deleted_ids

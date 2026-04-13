@@ -18,11 +18,11 @@ TerraWatch is a real-time Geospatial Intelligence (GEOINT) platform that visuali
                               ↕
 ┌─────────────────────────────────────────────────────────────┐
 │                      FASTAPI BACKEND                         │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
-│  │  ADSB    │  │   AIS    │  │  GDELT   │  │  ACLED    │  │
-│  │ Service  │  │ Service  │  │ Service  │  │ Service   │  │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  │
-│       └────────────┴──────────────┴──────────────┘         │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                    │
+│  │  ADSB    │  │   AIS    │  │  GDELT   │                    │
+│  │ Service  │  │ Service  │  │ Service  │                    │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘                    │
+│       └────────────┴──────────────┘                           │
 │                          ↕                                   │
 │              Background Schedulers (asyncio)                  │
 │                          ↕                                   │
@@ -31,7 +31,7 @@ TerraWatch is a real-time Geospatial Intelligence (GEOINT) platform that visuali
                               ↕
 ┌─────────────────────────────────────────────────────────────┐
 │                       SQLite (V1)                            │
-│   planes | ships | events | conflicts | zones | alerts      │
+│   planes | ships | events | zones | alerts                    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -73,7 +73,6 @@ terrawatch/
 │   │   │   ├── adsb_service.py     # Plane data fetching
 │   │   │   ├── ais_service.py       # Ship data fetching
 │   │   │   ├── gdelt_service.py     # World events
-│   │   │   └── acled_service.py     # Conflict data
 │   │   └── tasks/
 │   │       └── schedulers.py        # Background refresh jobs
 │   ├── requirements.txt
@@ -140,7 +139,7 @@ terrawatch/
 - `ship_type`: str
 - `timestamp`: datetime
 
-### Event (GDELT)
+### Event (GDELT — covers both world events and conflicts)
 - `id`: str
 - `date`: date
 - `lat`: float
@@ -149,6 +148,8 @@ terrawatch/
 - `tone`: float
 - `category`: str
 - `source_url`: str
+
+Conflict events are GDELT entries with violent/aggressive categories (assault, fight, rioting, mass violence, force), displayed on the conflict heatmap.
 
 ### Zone (User-defined)
 - `id`: str (uuid)
@@ -169,7 +170,7 @@ terrawatch/
 - Phase 3: Ships layer added, V1 polished and shippable
 
 ### V2 — Intelligence Layer (Phases 4-5)
-- Phase 4: GDELT world events + ACLED conflict heatmap
+- Phase 4: GDELT world events + conflict heatmap (GDELT violent events)
 - Phase 5: Performance optimization, UX polish
 
 ### V3 — Decision Support (Phases 6-7)

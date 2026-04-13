@@ -1,5 +1,4 @@
 import asyncio
-import os
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -1027,7 +1026,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
                 gdelt_cancelled.set()
                 raise
 
-        with patch.dict(os.environ, {"ACLED_EMAIL": "", "ACLED_PASSWORD": ""}), patch.object(schedulers.settings, "AISSTREAM_API_KEY", ""), patch(
+        with patch.object(schedulers.settings, "AISSTREAM_API_KEY", ""), patch(
             "app.tasks.schedulers.plane_fetch_loop", fake_plane_loop
         ), patch("app.tasks.schedulers.ships_refresh_loop", fake_ship_loop), patch(
             "app.tasks.schedulers.gdelt_refresh_loop", fake_gdelt_loop
@@ -1090,7 +1089,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         fake_service = AsyncMock()
         fake_service.close = AsyncMock()
 
-        with patch.dict(os.environ, {"ACLED_EMAIL": "", "ACLED_PASSWORD": ""}), patch.object(schedulers.settings, "AISSTREAM_API_KEY", "test-key"), patch(
+        with patch.object(schedulers.settings, "AISSTREAM_API_KEY", "test-key"), patch(
             "app.tasks.schedulers.plane_fetch_loop", fake_plane_loop
         ), patch("app.tasks.schedulers.ships_refresh_loop", fake_ship_loop), patch(
             "app.tasks.schedulers.aisstream_listener_loop", fake_aisstream_loop
@@ -1174,7 +1173,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         fake_service = AsyncMock()
         fake_service.close = AsyncMock()
 
-        with patch.dict(os.environ, {"ACLED_EMAIL": "", "ACLED_PASSWORD": ""}), patch.object(schedulers.settings, "AISSTREAM_API_KEY", "test-key"), patch(
+        with patch.object(schedulers.settings, "AISSTREAM_API_KEY", "test-key"), patch(
             "app.tasks.schedulers.plane_fetch_loop", fake_plane_loop
         ), patch("app.tasks.schedulers.ships_refresh_loop", fake_ship_loop), patch(
             "app.tasks.schedulers.aisstream_listener_loop", fake_aisstream_loop
