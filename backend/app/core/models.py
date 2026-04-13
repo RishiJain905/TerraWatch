@@ -43,16 +43,6 @@ class WorldEvent(BaseModel):
     source_url: str = ""
 
 
-class ConflictZone(BaseModel):
-    id: str
-    date: str
-    lat: float
-    lon: float
-    event_type: str
-    fatalities: int = 0
-    region: str = ""
-    country: str = ""
-
 
 class Metadata(BaseModel):
     status: str

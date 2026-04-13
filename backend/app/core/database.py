@@ -62,6 +62,31 @@ _SHIP_UPSERT_SQL = """
         timestamp = excluded.timestamp
 """
 
+_EVENT_COLUMN_DEFINITIONS = {
+    "id": "TEXT PRIMARY KEY",
+    "date": "TEXT",
+    "lat": "REAL",
+    "lon": "REAL",
+    "event_text": "TEXT",
+    "tone": "REAL DEFAULT 0",
+    "category": "TEXT DEFAULT ''",
+    "source_url": "TEXT DEFAULT ''",
+}
+
+_EVENT_UPSERT_SQL = """
+    INSERT INTO events (id, date, lat, lon, event_text, tone, category, source_url)
+    VALUES (:id, :date, :lat, :lon, :event_text, :tone, :category, :source_url)
+    ON CONFLICT(id) DO UPDATE SET
+        date = excluded.date,
+        lat = excluded.lat,
+        lon = excluded.lon,
+        event_text = excluded.event_text,
+        tone = excluded.tone,
+        category = excluded.category,
+        source_url = excluded.source_url
+"""
+
+
 
 async def _connect_db() -> aiosqlite.Connection:
     db = await aiosqlite.connect(DATABASE_PATH)
@@ -240,6 +265,7 @@ async def init_db() -> None:
             )
             """
         )
+        await _ensure_table_columns(db, "events", _EVENT_COLUMN_DEFINITIONS, skip_columns={"id"})
 
         await db.execute("CREATE INDEX IF NOT EXISTS idx_planes_timestamp ON planes(timestamp)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_ships_timestamp ON ships(timestamp)")
@@ -402,5 +428,90 @@ async def delete_old_ships(
     if deleted_ids:
         placeholders = ", ".join("?" for _ in deleted_ids)
         await db.execute(f"DELETE FROM ships WHERE id IN ({placeholders})", deleted_ids)
+
+    return deleted_ids
+
+
+async def upsert_event(
+    db: aiosqlite.Connection,
+    event: dict,
+    *,
+    commit: bool = True,
+) -> None:
+    """Insert or update a single event row using the repo contract."""
+    await upsert_events(db, [event], commit=commit)
+
+
+async def upsert_events(
+    db: aiosqlite.Connection,
+    events: list[dict],
+    *,
+    commit: bool = True,
+) -> None:
+    """Insert or update event rows using a single batched statement."""
+    if commit:
+        async with db_write_guard():
+            await upsert_events(db, events, commit=False)
+            await db.commit()
+        return
+
+    if not events:
+        return
+
+    normalized_events = []
+    for event in events:
+        # GDELT uses "YYYYMM" format (e.g. "202504"). Convert to ISO "YYYY-MM-01"
+        # so julianday() correctly parses it for the delete_old_events age filter.
+        raw_date = event.get("date") or ""
+        if len(raw_date) == 6 and raw_date.isdigit():
+            normalized_date = f"{raw_date[:4]}-{raw_date[4:6]}-01"
+        else:
+            normalized_date = raw_date
+
+        normalized_events.append(
+            {
+                "id": event["id"],
+                "date": normalized_date,
+                "lat": event.get("lat"),
+                "lon": event.get("lon"),
+                "event_text": event.get("event_text", ""),
+                "tone": event.get("tone", 0),
+                "category": event.get("category", ""),
+                "source_url": event.get("source_url", ""),
+            }
+        )
+
+    await db.executemany(_EVENT_UPSERT_SQL, normalized_events)
+
+
+async def delete_old_events(
+    db: aiosqlite.Connection,
+    max_age_days: int = 30,
+    *,
+    commit: bool = True,
+) -> list[str]:
+    """Delete stale events older than max_age_days and return the deleted event ids."""
+    if commit:
+        async with db_write_guard():
+            deleted_ids = await delete_old_events(db, max_age_days=max_age_days, commit=False)
+            await db.commit()
+            return deleted_ids
+
+    async with db.execute(
+        """
+        SELECT id
+        FROM events
+        WHERE date IS NULL
+           OR julianday(date) IS NULL
+           OR julianday(date) < julianday('now', '-' || ? || ' days')
+        ORDER BY id
+        """,
+        (max_age_days,),
+    ) as cursor:
+        deleted_ids = [row[0] for row in await cursor.fetchall()]
+
+    if deleted_ids:
+        placeholders = ", ".join("?" for _ in deleted_ids)
+        await db.execute(f"DELETE FROM events WHERE id IN ({placeholders})", deleted_ids)
 
     return deleted_ids

@@ -1,10 +1,28 @@
 import aiosqlite
 from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse
 
 from app.core.database import get_db
 from app.core.models import WorldEvent
 
 router = APIRouter(prefix="/api/events", tags=["events"])
+
+
+@router.get("/count", response_model=dict)
+async def get_event_count(db: aiosqlite.Connection = Depends(get_db)):
+    """Return total event count."""
+    async with db.execute("SELECT COUNT(*) AS count FROM events") as cursor:
+        row = await cursor.fetchone()
+        return {"count": row["count"]}
+
+
+@router.get("/{event_id}", response_model=WorldEvent | None)
+async def get_event(event_id: str, db: aiosqlite.Connection = Depends(get_db)):
+    """Get details for a specific event by id. Returns None if not found."""
+    normalized_id = event_id.strip()
+    async with db.execute("SELECT * FROM events WHERE id = ?", (normalized_id,)) as cursor:
+        row = await cursor.fetchone()
+        return dict(row) if row else None
 
 
 @router.get("", response_model=list[WorldEvent])

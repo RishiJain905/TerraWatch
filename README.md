@@ -20,7 +20,7 @@ Unlike expensive enterprise platforms, TerraWatch runs entirely in your browser 
 - Real-time aircraft tracking via ADS-B (OpenSky Network — global, ~12,000 aircraft)
 - Real-time maritime vessel tracking via AIS (Digitraffic — Nordic/Baltic, ~1,000–2,000 ships)
 - World event monitoring (GDELT) — V2
-- Conflict zone visualization (ACLED) — V2
+- Conflict zone visualization (GDELT violent events) — V2
 - Intelligence alerting — V3
 
 ---
@@ -106,7 +106,7 @@ Mutually exclusive w/ plane panel"]
 | 1 | Foundation Setup | Complete | FastAPI backend, React + deck.gl frontend, Docker Compose, REST API + WebSocket pipeline |
 | 2 | Live Aircraft Tracking | Complete | OpenSky integration (~12,000 aircraft), 30s refresh, directional icons, PlaneInfoPanel |
 | 3 | Live Ship Tracking | Complete | Digitraffic integration (Nordic/Baltic), 60s refresh, type-colored icons, ShipInfoPanel, mutual exclusion |
-| 4–7 | Events / Conflicts / Alerting | Planned | GDELT events, ACLED conflict heatmap, zone alerting, production hardening |
+| 4–7 | Events / Conflicts / Alerting | Planned | GDELT events + conflict heatmap (GDELT violent events), zone alerting, production hardening |
 
 ### Phase 1 — Foundation Setup
 
@@ -340,7 +340,7 @@ Execution uses **Droid Missions** for structured multi-agent orchestration, or t
 | Version | Phases | Features | Status |
 |---------|--------|---------|--------|
 | **V1** | 1–3 | Live planes + ships on globe | **Current** |
-| **V2** | 4–5 | GDELT world events + ALED conflict heatmap | Planned |
+| **V2** | 4–5 | GDELT world events + conflict heatmap (GDELT violent events) | Planned |
 | **V3** | 6–7 | Zone alerting + production hardening | Planned |
 
 ---
@@ -392,8 +392,7 @@ Example ship_batch message:
 |--------|------|----------|------|--------|
 | [OpenSky Network](https://opensky-network.org/api/states/all) | Aircraft (ADS-B) | Global (~12,000 aircraft) | None | Live |
 | [Digitraffic AIS](https://meri.digitraffic.fi/api/ais/v1/) | Ships (AIS) | Nordic/Baltic (~1,000–2,000 ships) | None | Live |
-| [GDELT Project](https://www.gdeltproject.org/) | World Events | Global | None | V2 (planned) |
-| [ACLED](https://acleddata.com/) | Conflicts | Global | Free registration | V2 (planned) |
+| [GDELT Project](https://www.gdeltproject.org/) | World Events & Conflicts | Global | None | V2 (planned) |
 
 **Note:** ADS-B and AIS are public broadcast technologies — aircraft and vessels actively transmit their positions. This is established and legal in most jurisdictions.
 

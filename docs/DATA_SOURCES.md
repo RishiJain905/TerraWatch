@@ -287,29 +287,7 @@ http://api.gdeltproject.org/api/v2/doc/doc?query=topic&format=json
 
 **Rate limits:** No strict rate limit but be respectful. Downloading the hourly export files is the most efficient approach.
 
----
-
-## Conflict Data
-
-### ACLED (Armed Conflict Location and Event Data Project)
-
-**What it is:** The most comprehensive open-source dataset on political violence and protest worldwide. Covers all countries from 1997 to present.
-
-**Website:** https://www.acleddna.com/
-
-**Free access:** Requires free registration on their website.
-
-**Download page:** https://www.acleddna.com/acleddatanew/access-all-data/
-
-**What it provides:**
-- Conflict event locations (lat, lon)
-- Event type (battles, explosions, riots, protests, etc.)
-- Fatality counts
-- Date and time
-- Country and region
-- Actor information
-
-**Format:** CSV download. No real-time API — download periodically.
+**Conflict data:** TerraWatch derives its conflict/conflict heatmap layer from GDELT by filtering violent/aggressive event categories (assault, fight, rioting, mass violence, force). The `Event` model covers both general world events and conflict events — conflict entries are distinguished by their `category` field.
 
 ---
 
@@ -353,7 +331,6 @@ No API key needed for basic usage.
 | AIS/Digitraffic (Finland) | Every 60 seconds | Background scheduler polling (httpx, gzip) |
 | AISStream.io | Every 30 seconds batch emit | Persistent WebSocket listener + batch merge |
 | GDELT | Every hour | Scheduled job (downloading latest export) |
-| ACLED | Once per day | Manual/scheduled CSV refresh |
 
 ---
 
@@ -363,6 +340,5 @@ No API key needed for basic usage.
 - **ADSB Exchange:** Non-commercial use free. Check their ToS for commercial use restrictions.
 - **AIS data:** Publicly broadcast data — free to use but some aggregators restrict commercial use.
 - **GDELT:** Publicly compiled from news — free for analysis and research.
-- **ACLED:** Free for academic and journalistic use with attribution. Check their data use policy.
 
 Always respect the data source terms of service when using freely available data.

@@ -2,9 +2,12 @@
 
 import asyncio
 import logging
+
 from typing import Any, Callable
 
 from app.api.websocket import (
+    broadcast_conflict_batch,
+    broadcast_event_batch,
     broadcast_plane_batch,
     broadcast_plane_update,
     broadcast_ship_batch,
@@ -19,16 +22,21 @@ from app.core.dedup import (
 )
 from app.core.database import (
     db_write_guard,
+    delete_old_events,
     delete_old_planes,
     delete_old_ships,
+    get_db,
     open_db_connection,
+    upsert_events,
     upsert_planes,
     upsert_ships,
 )
+
 from app.services.ais_service import fetch_ships
 from app.services.aisstream_service import AisstreamService
 from app.services.adsb_service import fetch_planes
 from app.services.adsblol_service import fetch_planes as fetch_adsblol_planes
+from app.services.gdelt_service import fetch_events as fetch_gdelt_events
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +45,14 @@ PLANE_STALE_AGE_MINUTES = 5
 SHIP_REFRESH_INTERVAL_SECONDS = settings.AIS_REFRESH_SECONDS
 SHIP_STALE_AGE_MINUTES = 10
 AISSTREAM_BATCH_INTERVAL_SECONDS = settings.AISSTREAM_BATCH_INTERVAL_SECONDS
+
+GDELT_REFRESH_SECONDS = settings.GDELT_REFRESH_SECONDS
+
+# GDELT categories considered violent — used to populate the conflicts heatmap
+VIOLENT_GDELT_CATEGORIES = [
+    "assault", "fight", "unconventional_mass_gvc",
+    "conventional_mass_gvc", "force_range", "rioting",
+]
 
 _scheduler_tasks: list[asyncio.Task] = []
 _ship_state_lock: asyncio.Lock | None = None
@@ -143,7 +159,10 @@ async def _persist_and_broadcast_ships(ships: list[dict]) -> list[dict]:
 async def refresh_planes_once() -> list[dict]:
     """Fetch, persist, clean up, and broadcast a single plane snapshot."""
     open_sky_result, adsblol_result = await asyncio.gather(
-        fetch_planes(),
+        fetch_planes(
+            client_id=settings.OPENSKY_CLIENT_ID or None,
+            client_secret=settings.OPENSKY_CLIENT_SECRET or None,
+        ),
         fetch_adsblol_planes(),
         return_exceptions=True,
     )
@@ -172,6 +191,8 @@ async def refresh_planes_once() -> list[dict]:
                 raise
 
     await _broadcast_plane_messages(planes, deleted_ids)
+    logger.info("Plane refresh: %d planes from OpenSky, %d from ADSB.lol, %d merged, %d deleted",
+                len(open_sky_planes), len(adsblol_planes), len(planes), len(deleted_ids))
 
     return planes
 
@@ -331,10 +352,43 @@ async def aisstream_listener_loop(
             _aisstream_service = None
 
 
-async def events_refresh_loop():
-    """Placeholder event scheduler for later phases."""
+async def gdelt_refresh_loop(interval_seconds: int = GDELT_REFRESH_SECONDS):
+    """Continuously refresh GDELT events without dying on transient failures."""
     while True:
-        await asyncio.sleep(3600)
+        try:
+            await _gdelt_fetch_and_broadcast()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("GDELT refresh loop failed")
+
+        await asyncio.sleep(interval_seconds)
+
+
+async def _gdelt_fetch_and_broadcast():
+    """Fetch GDELT events, persist to DB, and broadcast via WebSocket."""
+    events = await fetch_gdelt_events()
+    if not events:
+        return
+
+    async with db_write_guard():
+        db = await get_db()
+        try:
+            await upsert_events(db, events, commit=False)
+            await delete_old_events(db, max_age_days=30, commit=False)
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise
+
+    await broadcast_event_batch(events)
+
+    # Also broadcast violent events as conflicts for the heatmap layer
+    violent_events = [e for e in events if e.get("category") in VIOLENT_GDELT_CATEGORIES]
+    if violent_events:
+        await broadcast_conflict_batch(violent_events)
+
+    logger.info("GDELT refresh: persisted %d events (%d violent/conflicts)", len(events), len(violent_events))
 
 
 def _track_scheduler_task(task: asyncio.Task) -> None:
@@ -391,6 +445,15 @@ async def start_schedulers(
             _track_scheduler_task(aisstream_task)
     else:
         logger.info("AISSTREAM_API_KEY missing; aisstream scheduler not started")
+
+    # GDELT events scheduler — always starts (no API key required)
+    active_tasks = {task.get_name(): task for task in get_scheduler_tasks()}
+    if "gdelt-refresh-loop" not in active_tasks:
+        gdelt_task = asyncio.create_task(
+            gdelt_refresh_loop(),
+            name="gdelt-refresh-loop",
+        )
+        _track_scheduler_task(gdelt_task)
 
     return get_scheduler_tasks()
 
