@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-import os
+
 from typing import Any, Callable
 
 from app.api.websocket import (
@@ -22,18 +22,16 @@ from app.core.dedup import (
 )
 from app.core.database import (
     db_write_guard,
-    delete_old_conflicts,
     delete_old_events,
     delete_old_planes,
     delete_old_ships,
     get_db,
     open_db_connection,
-    upsert_conflicts,
     upsert_events,
     upsert_planes,
     upsert_ships,
 )
-from app.services.acled_service import fetch_conflicts
+
 from app.services.ais_service import fetch_ships
 from app.services.aisstream_service import AisstreamService
 from app.services.adsb_service import fetch_planes
@@ -49,7 +47,6 @@ SHIP_STALE_AGE_MINUTES = 10
 AISSTREAM_BATCH_INTERVAL_SECONDS = settings.AISSTREAM_BATCH_INTERVAL_SECONDS
 
 GDELT_REFRESH_SECONDS = 900  # 15 minutes
-ACLED_REFRESH_SECONDS = 86400  # 24 hours
 
 # GDELT categories considered violent — used to populate the conflicts heatmap
 VIOLENT_GDELT_CATEGORIES = [
@@ -397,42 +394,6 @@ async def _gdelt_fetch_and_broadcast():
     logger.info("GDELT refresh: persisted %d events (%d violent/conflicts)", len(events), len(violent_events))
 
 
-async def _acled_fetch_and_broadcast():
-    """Fetch ACLED conflicts, persist to DB, and broadcast via WebSocket."""
-    conflicts = await fetch_conflicts()
-    if not conflicts:
-        return
-
-    async with db_write_guard():
-        db = await get_db()
-        try:
-            await upsert_conflicts(db, conflicts, commit=False)
-            await delete_old_conflicts(db, max_age_days=30, commit=False)
-            await db.commit()
-        except Exception:
-            await db.rollback()
-            raise
-
-    await broadcast_conflict_batch(conflicts)
-    logger.info("ACLED refresh: persisted %d conflicts", len(conflicts))
-
-
-async def acled_refresh_loop(interval_seconds: int = ACLED_REFRESH_SECONDS):
-    """Continuously refresh ACLED conflicts without dying on transient failures."""
-    # Fire immediately on startup (if credentials are valid), then every interval_seconds
-    await _acled_fetch_and_broadcast()
-
-    while True:
-        try:
-            await _acled_fetch_and_broadcast()
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            logger.exception("ACLED refresh loop failed")
-
-        await asyncio.sleep(interval_seconds)
-
-
 def _track_scheduler_task(task: asyncio.Task) -> None:
     _scheduler_tasks.append(task)
 
@@ -496,20 +457,6 @@ async def start_schedulers(
             name="gdelt-refresh-loop",
         )
         _track_scheduler_task(gdelt_task)
-
-    # ACLED conflicts scheduler — only starts if credentials are configured
-    acled_email = os.getenv("ACLED_EMAIL", "")
-    acled_password = os.getenv("ACLED_PASSWORD", "")
-    if acled_email.strip() and acled_password.strip():
-        active_tasks = {task.get_name(): task for task in get_scheduler_tasks()}
-        if "acled-refresh-loop" not in active_tasks:
-            acled_task = asyncio.create_task(
-                acled_refresh_loop(),
-                name="acled-refresh-loop",
-            )
-            _track_scheduler_task(acled_task)
-    else:
-        logger.info("ACLED_EMAIL or ACLED_PASSWORD missing; ACLED scheduler not started")
 
     return get_scheduler_tasks()
 
