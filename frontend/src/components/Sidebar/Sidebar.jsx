@@ -32,7 +32,7 @@ export default function Sidebar({ layers, onToggleLayer }) {
         ))}
       </div>
       <div className="sidebar-footer">
-        <p className="phase-label">Phase 1 of 7</p>
+        <p className="phase-label">Phase 4 of 7</p>
       </div>
     </aside>
   )
