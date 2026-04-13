@@ -154,7 +154,7 @@ export default function Globe({ layers, onEntityClick }) {
     )
   }
 
-  // ACLED Conflicts layer — heatmap by fatalities
+  // Conflicts layer — GDELT violent events heatmap by tone
   if (layers && layers.conflicts) {
     deckLayers.push(
       new HeatmapLayer({
@@ -162,7 +162,7 @@ export default function Globe({ layers, onEntityClick }) {
         data: conflicts,
         pickable: true,
         getPosition: d => [d.lon, d.lat],
-        getWeight: d => (d.fatalities || 0) + 1,
+        getWeight: d => Math.abs(d.tone || 0) + 1,
         intensity: 1,
         threshold: 0.05,
         colorRange: [[255,0,0], [255,80,0], [255,160,0], [255,255,0]],

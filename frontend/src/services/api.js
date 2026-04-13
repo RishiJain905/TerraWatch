@@ -23,3 +23,9 @@ export async function fetchMetadata() {
   if (!res.ok) throw new Error('Failed to fetch metadata')
   return res.json()
 }
+
+export async function fetchConflicts() {
+  const res = await fetch(`${API_BASE}/api/conflicts`)
+  if (!res.ok) throw new Error('Failed to fetch conflicts')
+  return res.json()
+}
