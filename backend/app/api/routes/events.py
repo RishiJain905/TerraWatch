@@ -33,3 +33,25 @@ async def get_events(db: aiosqlite.Connection = Depends(get_db)):
     async with db.execute("SELECT * FROM events") as cursor:
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]
+
+
+@router.post("/seed", response_model=dict)
+async def seed_events():
+    """Seed GDELT events into the DB. For testing."""
+    import sys
+    from app.tasks.schedulers import _gdelt_fetch_and_broadcast
+    from app.core.database import get_db
+    import aiosqlite
+
+    print("[SEED] Starting seed via HTTP", flush=True, file=sys.stderr)
+    await _gdelt_fetch_and_broadcast()
+    print("[SEED] _gdelt_fetch_and_broadcast() returned", flush=True, file=sys.stderr)
+
+    # Check on the SAME db connection
+    db = await get_db()
+    async with db.execute("SELECT COUNT(*) as cnt FROM events") as c:
+        row = await c.fetchone()
+        count = row["cnt"]
+    print(f"[SEED] Events in get_db(): {count}", flush=True, file=sys.stderr)
+
+    return {"seeded": True, "event_count": count}

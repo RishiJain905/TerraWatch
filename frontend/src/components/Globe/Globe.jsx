@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import DeckGL from '@deck.gl/react'
 import { _GlobeView as GlobeView } from '@deck.gl/core'
 import { TileLayer } from '@deck.gl/geo-layers'
@@ -65,6 +65,18 @@ export default function Globe({ layers, onEntityClick }) {
   }, [addPlane, addPlanes, addShip, addShips, removePlane, removeShip])
 
   const { connected } = useWebSocket(handleWSMessage)
+
+  // Initial REST fetch for events and conflicts on mount
+  useEffect(() => {
+    fetch('/api/events')
+      .then(r => r.ok ? r.json() : [])
+      .then(data => { if (Array.isArray(data) && data.length > 0) setEvents(data) })
+      .catch(() => {})
+    fetch('/api/conflicts')
+      .then(r => r.ok ? r.json() : [])
+      .then(data => { if (Array.isArray(data) && data.length > 0) setConflicts(data) })
+      .catch(() => {})
+  }, [])
 
   // Tile layer for dark basemap rendered on the globe
   const tileLayer = new TileLayer({

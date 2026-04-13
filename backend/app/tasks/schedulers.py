@@ -26,6 +26,7 @@ from app.core.database import (
     delete_old_events,
     delete_old_planes,
     delete_old_ships,
+    get_db,
     open_db_connection,
     upsert_conflicts,
     upsert_events,
@@ -345,21 +346,12 @@ async def aisstream_listener_loop(
 
 async def gdelt_refresh_loop(interval_seconds: int = GDELT_REFRESH_SECONDS):
     """Continuously refresh GDELT events without dying on transient failures."""
+    # Fire immediately on startup, then every interval_seconds
+    await _gdelt_fetch_and_broadcast()
+
     while True:
         try:
-            events = await fetch_gdelt_events()
-            if events:
-                async with db_write_guard():
-                    async with open_db_connection() as db:
-                        try:
-                            await upsert_events(db, events, commit=False)
-                            await delete_old_events(db, max_age_days=30, commit=False)
-                            await db.commit()
-                        except Exception:
-                            await db.rollback()
-                            raise
-                await broadcast_event_batch(events)
-                logger.info("GDELT refresh: persisted %d events", len(events))
+            await _gdelt_fetch_and_broadcast()
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -368,23 +360,68 @@ async def gdelt_refresh_loop(interval_seconds: int = GDELT_REFRESH_SECONDS):
         await asyncio.sleep(interval_seconds)
 
 
+async def _gdelt_fetch_and_broadcast():
+    """Fetch GDELT events, persist to DB, and broadcast via WebSocket."""
+    import sys
+    print(f"[GDELT] Starting fetch... (python pid={os.getpid()})", flush=True, file=sys.stderr)
+    events = await fetch_gdelt_events()
+    print(f"[GDELT] Fetched {len(events)} events", flush=True, file=sys.stderr)
+    if not events:
+        return
+
+    print(f"[GDELT] Acquiring db_write_guard...", flush=True, file=sys.stderr)
+    from app.core.database import DATABASE_PATH
+    print(f"[GDELT] DATABASE_PATH={DATABASE_PATH}", flush=True, file=sys.stderr)
+    async with db_write_guard():
+        print(f"[GDELT] Lock acquired, getting db...", flush=True, file=sys.stderr)
+        db = await get_db()
+        try:
+            print(f"[GDELT] Upserting {len(events)} events...", flush=True, file=sys.stderr)
+            await upsert_events(db, events, commit=False)
+            print(f"[GDELT] Delete old events...", flush=True, file=sys.stderr)
+            await delete_old_events(db, max_age_days=30, commit=False)
+            print(f"[GDELT] Committing...", flush=True, file=sys.stderr)
+            await db.commit()
+            print(f"[GDELT] Committed successfully!", flush=True, file=sys.stderr)
+        except Exception as e:
+            print(f"[GDELT] Exception during DB: {e}", flush=True, file=sys.stderr)
+            await db.rollback()
+            raise
+
+    logger.info("GDELT refresh: persisted %d events", len(events))
+    print(f"[GDELT] Broadcasting {len(events)} events...", flush=True, file=sys.stderr)
+    await broadcast_event_batch(events)
+    print(f"[GDELT] Done! Persisted {len(events)} events", flush=True, file=sys.stderr)
+
+
+async def _acled_fetch_and_broadcast():
+    """Fetch ACLED conflicts, persist to DB, and broadcast via WebSocket."""
+    conflicts = await fetch_conflicts()
+    if not conflicts:
+        return
+
+    async with db_write_guard():
+        db = await get_db()
+        try:
+            await upsert_conflicts(db, conflicts, commit=False)
+            await delete_old_conflicts(db, max_age_days=30, commit=False)
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise
+
+    await broadcast_conflict_batch(conflicts)
+    logger.info("ACLED refresh: persisted %d conflicts", len(conflicts))
+
+
 async def acled_refresh_loop(interval_seconds: int = ACLED_REFRESH_SECONDS):
     """Continuously refresh ACLED conflicts without dying on transient failures."""
+    # Fire immediately on startup (if credentials are valid), then every interval_seconds
+    await _acled_fetch_and_broadcast()
+
     while True:
         try:
-            conflicts = await fetch_conflicts()
-            if conflicts:
-                async with db_write_guard():
-                    async with open_db_connection() as db:
-                        try:
-                            await upsert_conflicts(db, conflicts, commit=False)
-                            await delete_old_conflicts(db, max_age_days=30, commit=False)
-                            await db.commit()
-                        except Exception:
-                            await db.rollback()
-                            raise
-                await broadcast_conflict_batch(conflicts)
-                logger.info("ACLED refresh: persisted %d conflicts", len(conflicts))
+            await _acled_fetch_and_broadcast()
         except asyncio.CancelledError:
             raise
         except Exception:

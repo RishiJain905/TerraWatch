@@ -16,18 +16,15 @@ logger = logging.getLogger(__name__)
 
 GDELT_LASTUPDATE_URL = "http://data.gdeltproject.org/gdeltv2/lastupdate.txt"
 
-# Column indices in the pipe-delimited GDELT CSV
 _COL_GLOBAL_EVENT_ID = 0
 _COL_SQL_DATE = 2
-_COL_EVENT_CODE = 13
-_COL_EVENT_ROOT_CODE = 15
-_COL_AVG_TONE = 21
-_COL_ACTOR1_GEO_LAT = 29
-_COL_ACTOR1_GEO_LONG = 30
-_COL_ACTION_GEO_LAT = 42
-_COL_ACTION_GEO_LONG = 43
+_COL_EVENT_CODE = 26      # 3-digit CAMEO event code (e.g. "042")
+_COL_EVENT_ROOT_CODE = 26  # Root = first 2 digits of event code (e.g. "04")
+_COL_AVG_TONE = 34
+_COL_ACTION_GEO_LAT = 40
+_COL_ACTION_GEO_LONG = 41
 _COL_ACTION_GEO_FEATURE_ID = 44
-_COL_DATE_ADDED = 57
+_COL_DATE_ADDED = 59
 
 # EventCode → category mapping
 EVENT_CODE_CATEGORY_MAP: dict[str, str] = {
@@ -120,64 +117,82 @@ async def _get_latest_csv_url(client: httpx.AsyncClient) -> str | None:
 
 
 async def _download_and_parse_csv(client: httpx.AsyncClient, csv_url: str) -> list[dict]:
-    """Download and stream-parse a GDELT CSV file."""
+    """Download and stream-parse a GDELT CSV file.
+
+    The GDELT export is served as a .zip containing a single CSV.
+    We collect the full response bytes, unzip in memory, then parse.
+    This avoids binary-decoding issues with aiter_lines() on compressed content.
+    """
     events: list[dict] = []
 
     try:
-        async with client.stream("GET", csv_url, timeout=60.0) as response:
-            response.raise_for_status()
+        # Download full zip into memory (it's ~42KB, very small)
+        response = await client.get(csv_url, timeout=60.0)
+        response.raise_for_status()
+        zip_bytes = response.read()
 
-            async for line_bytes in response.aiter_lines():
-                line = line_bytes.strip()
-                if not line:
-                    continue
+        import zipfile, io
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            csv_names = [n for n in zf.namelist() if n.endswith(".CSV")]
+            if not csv_names:
+                logger.warning("No .CSV file found inside GDELT zip %s", csv_url)
+                return []
+            csv_name = csv_names[0]
+            with zf.open(csv_name) as f:
+                csv_text = f.read().decode("utf-8", errors="replace")
 
-                columns = _parse_csv_line(line)
-                if len(columns) <= _COL_DATE_ADDED:
-                    continue
+        for line in csv_text.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
 
-                # Skip rows without geo coordinates
-                action_lat = columns[_COL_ACTION_GEO_LAT].strip()
-                action_lon = columns[_COL_ACTION_GEO_LONG].strip()
-                if not action_lat or not action_lon:
-                    continue
+            columns = _parse_csv_line(line)
+            if len(columns) <= _COL_DATE_ADDED:
+                continue
 
-                try:
-                    lat = float(action_lat)
-                    lon = float(action_lon)
-                except (ValueError, TypeError):
-                    continue
+            # Skip rows without geo coordinates
+            action_lat = columns[_COL_ACTION_GEO_LAT].strip()
+            action_lon = columns[_COL_ACTION_GEO_LONG].strip()
+            if not action_lat or not action_lon:
+                continue
 
-                global_event_id = columns[_COL_GLOBAL_EVENT_ID].strip()
-                event_code = columns[_COL_EVENT_CODE].strip()
-                avg_tone = _safe_float(columns[_COL_AVG_TONE])
-                date_added = columns[_COL_DATE_ADDED].strip()
-                sql_date = columns[_COL_SQL_DATE].strip()
+            try:
+                lat = float(action_lat)
+                lon = float(action_lon)
+            except (ValueError, TypeError):
+                continue
 
-                # Determine category from event code
-                root_code = columns[_COL_EVENT_ROOT_CODE].strip()
-                category = EVENT_CODE_CATEGORY_MAP.get(root_code, "")
+            global_event_id = columns[_COL_GLOBAL_EVENT_ID].strip()
+            event_code = columns[_COL_EVENT_CODE].strip()
+            avg_tone = _safe_float(columns[_COL_AVG_TONE])
+            date_added = columns[_COL_DATE_ADDED].strip()
+            sql_date = columns[_COL_SQL_DATE].strip()
 
-                # Build event text
-                description = EVENT_CODE_DESCRIPTION.get(
-                    root_code, f"Event code {root_code}"
-                )
-                event_text = description
+            # Determine category from event code
+            root_code = columns[_COL_EVENT_ROOT_CODE].strip()
+            # root_code is the full 3-digit code; derive 2-digit root for category
+            category = EVENT_CODE_CATEGORY_MAP.get(root_code[:2], "")
 
-                # Parse date
-                date = _parse_date(sql_date) if sql_date else _parse_date(date_added)
+            # Build event text
+            description = EVENT_CODE_DESCRIPTION.get(
+                root_code, f"Event code {root_code}"
+            )
+            event_text = description
 
-                event = {
-                    "id": f"gdelt_{global_event_id}",
-                    "date": date,
-                    "lat": lat,
-                    "lon": lon,
-                    "event_text": event_text,
-                    "tone": avg_tone,
-                    "category": category,
-                    "source_url": csv_url,
-                }
-                events.append(event)
+            # Parse date
+            date = _parse_date(sql_date) if sql_date else _parse_date(date_added)
+
+            event = {
+                "id": f"gdelt_{global_event_id}",
+                "date": date,
+                "lat": lat,
+                "lon": lon,
+                "event_text": event_text,
+                "tone": avg_tone,
+                "category": category,
+                "source_url": csv_url,
+            }
+            events.append(event)
 
     except Exception:
         logger.exception("Failed to download/parse GDELT CSV from %s", csv_url)
