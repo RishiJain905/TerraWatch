@@ -156,7 +156,10 @@ async def _persist_and_broadcast_ships(ships: list[dict]) -> list[dict]:
 async def refresh_planes_once() -> list[dict]:
     """Fetch, persist, clean up, and broadcast a single plane snapshot."""
     open_sky_result, adsblol_result = await asyncio.gather(
-        fetch_planes(),
+        fetch_planes(
+            client_id=settings.OPENSKY_CLIENT_ID or None,
+            client_secret=settings.OPENSKY_CLIENT_SECRET or None,
+        ),
         fetch_adsblol_planes(),
         return_exceptions=True,
     )
@@ -185,6 +188,8 @@ async def refresh_planes_once() -> list[dict]:
                 raise
 
     await _broadcast_plane_messages(planes, deleted_ids)
+    logger.info("Plane refresh: %d planes from OpenSky, %d from ADSB.lol, %d merged, %d deleted",
+                len(open_sky_planes), len(adsblol_planes), len(planes), len(deleted_ids))
 
     return planes
 
