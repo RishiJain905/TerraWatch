@@ -4,7 +4,7 @@
 
 Add two new data layers to TerraWatch:
 1. **GDELT** — real-time world events from global news (fires, protests, diplomacy, etc.)
-2. **ACLED** — conflict event heatmap showing intensity of political violence worldwide
+2. **GDELT Conflicts** — conflict heatmap derived from GDELT violent event categories
 
 These complete the "intelligence layer" for V2 — transforming TerraWatch from a pure tracker into a GEOINT platform.
 
@@ -14,7 +14,7 @@ These complete the "intelligence layer" for V2 — transforming TerraWatch from 
 
 Before any implementation, read:
 - `docs/ARCHITECTURE.md` — current system architecture, data models
-- `docs/DATA_SOURCES.md` — GDELT and ACLED API details, response formats
+- `docs/DATA_SOURCES.md` — GDELT API details, response formats
 - `docs/phases/phase4/PHASE4_OVERVIEW.md` — this file
 
 ---
@@ -22,8 +22,8 @@ Before any implementation, read:
 ## What This Phase Is
 
 - A new **events layer** on the globe showing GDELT world events as colored points
-- A new **conflict heatmap layer** showing ACLED conflict intensity as a heat overlay
-- Backend services for both data sources
+- A new **conflict heatmap layer** powered by GDELT's violent event categories
+- Backend services for GDELT data
 - New WebSocket message types for event and conflict updates
 - Filter controls to toggle events and conflicts on/off
 - Click-to-inspect event/conflict details
@@ -35,21 +35,21 @@ Before any implementation, read:
 - Zone alerting (Phase 6)
 - Performance optimization (Phase 5)
 - Historical event playback
-- Real-time news streaming (GDELT is 15-min delayed, ACLED is daily)
+- Real-time news streaming (GDELT is 15-min delayed)
 
 ---
 
-## Data Sources
+## Data Source
 
-### GDELT Project — World Events
+### GDELT Project — World Events & Conflicts
 
-| Attribute | Detail |
-|-----------|--------|
+|| Attribute | Detail ||
+|-----------|---------|
 | **What** | Global events from news — fires, protests, diplomacy, disease, etc. |
 | **Coverage** | Global, every country |
 | **Auth** | None — completely free |
 | **Refresh** | ~15 minutes (hourly export files) |
-| **Format** | CSV/JSON from their gelevt API |
+| **Format** | CSV/JSON from their hourly export files |
 | **Key endpoint** | `http://data.gdeltproject.org/gdeltv2/lastupdate.txt` (gets latest file URL) |
 
 **Key fields:**
@@ -59,33 +59,17 @@ Before any implementation, read:
 - `category` — event category (protest, war, diplomacy, etc.)
 - `source_url` — original news source
 
-### ACLED — Conflict Data
+**Violent categories used for the conflicts heatmap:**
+| Category | GDELT Event Code | Description |
+|----------|-----------------|-------------|
+| assault | 08 | Physical assault |
+| fight | 09 | Exchange of physical violence |
+| rioting | 18 | Rioting or mob violence |
+| unconventional_mass_gvc | 10 | Unconventional mass violence |
+| conventional_mass_gvc | 12 | Conventional mass violence |
+| force_range | 13 | Use of force, military operations |
 
-| Attribute | Detail |
-|-----------|--------|
-| **What** | Armed conflict and political violence events |
-| **Coverage** | Global, 1997–present |
-| **Auth** | OAuth Bearer token (free registration at acleddata.com) |
-| **Refresh** | Daily via API |
-| **Format** | JSON or CSV via API |
-| **Key pages** | https://acleddata.com/register (signup), https://acleddata.com/acled-api-documentation (docs) |
-
-**Auth flow:**
-1. `POST https://acleddata.com/oauth/token` with username, password, grant_type=password, client_id=acled
-2. Returns `access_token` (Bearer, 24hr valid) + `refresh_token` (14 days valid)
-3. Use `Authorization: Bearer {token}` header on subsequent API calls
-4. Refresh token when expired
-
-**API endpoint:** `https://acleddata.com/api/acled/read?_format=json`
-
-**Key fields:**
-- `latitude`, `longitude` — event location
-- `event_type` — battles, explosions, riots, protests, etc.
-- `fatalities` — death count
-- `event_date` — event date
-- `country`, `region`
-
-**Registration:** User must register at https://acleddata.com/register. Document credentials in `.env.example`.
+**Note:** The conflicts heatmap is powered entirely by GDELT. The conflicts table no longer exists — violent events are filtered from the `events` table at query time.
 
 ---
 
@@ -95,11 +79,12 @@ Before any implementation, read:
 
 ```
 backend/app/services/
-├── gdelt_service.py      NEW — fetch GDELT events, parse, normalize
-└── acled_service.py      NEW — fetch ACLED conflicts via OAuth API, parse, normalize
+├── gdelt_service.py      NEW — fetch GDELT events, parse, normalize to WorldEvent
 ```
 
-### New Database Tables
+### Database Schema
+
+The `events` table stores all GDELT world events. The conflicts heatmap queries this table, filtering by violent categories at runtime.
 
 ```sql
 CREATE TABLE events (
@@ -113,29 +98,17 @@ CREATE TABLE events (
     source_url TEXT,
     timestamp TEXT
 );
-
-CREATE TABLE conflicts (
-    id TEXT PRIMARY KEY,
-    lat REAL NOT NULL,
-    lon REAL NOT NULL,
-    date TEXT NOT NULL,
-    event_type TEXT,
-    fatalities INTEGER DEFAULT 0,
-    country TEXT,
-    region TEXT,
-    timestamp TEXT
-);
 ```
 
 ### New REST Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/events` | All active events (configurable time window) |
+| `GET` | `/api/events` | All events |
 | `GET` | `/api/events/count` | Event count |
-| `GET` | `/api/events/{id}` | Single event details |
-| `GET` | `/api/conflicts` | All active conflicts |
-| `GET` | `/api/conflicts/count` | Conflict count |
+| `GET` | `/api/events/{id}` | Single event details (returns None if not found) |
+| `GET` | `/api/conflicts` | All violent events (filtered from events table) |
+| `GET` | `/api/conflicts/count` | Violent event count |
 
 ### New WebSocket Messages
 
@@ -162,32 +135,30 @@ CREATE TABLE conflicts (
   "type": "conflict_batch",
   "action": "upsert",
   "data": [{
-    "id": "acled_456",
+    "id": "gdelt_456",
     "lat": 34.0,
     "lon": 36.0,
     "date": "2026-04-12",
-    "event_type": "battles",
-    "fatalities": 15,
-    "country": "Syria",
-    "region": "Middle East"
+    "event_text": "Fighting in region",
+    "tone": -8.5,
+    "category": "fight",
+    "source_url": "https://example.com"
   }],
   "timestamp": "2026-04-13T00:00:00Z"
 }
 ```
 
-### New Schedulers
+### New Scheduler
 
 | Service | Refresh Rate | Method |
 |---------|-------------|--------|
-| GDELT | Every 15 minutes | Download latest export, diff against DB |
-| ACLED | Once per day | OAuth token refresh + API call |
+| GDELT | Every 15 minutes (configurable via GDELT_REFRESH_SECONDS env var) | Download latest export, parse, upsert, broadcast |
 
 ### Environment Variables
 
 ```
-# .env.example additions
-ACLED_EMAIL=         # Registered email at acleddata.com
-ACLED_PASSWORD=     # Account password
+# .env.example
+GDELT_REFRESH_SECONDS=900   # Optional: override GDELT polling interval (default: 900s / 15min)
 ```
 
 ---
@@ -199,35 +170,25 @@ ACLED_PASSWORD=     # Account password
 ```
 frontend/src/components/
 ├── EventsLayer/          NEW — ScatterplotLayer for GDELT events
-├── ConflictsLayer/       NEW — HeatmapLayer for ACLED conflict intensity
 ├── EventInfoPanel/       NEW — Slide-in panel for event details
-└── ConflictInfoPanel/   NEW — Slide-in panel for conflict details
-```
-
-```
-frontend/src/hooks/
-├── useEvents.js          NEW — event state + WS event_batch handling
-└── useConflicts.js       NEW — conflict state + WS conflict_batch handling
+└── ConflictInfoPanel/    NEW — Slide-in panel for conflict details (GDELT fields)
 ```
 
 ### Layer Design
 
 **GDELT Events (ScatterplotLayer):**
 - Points colored by `tone` — red (negative), yellow (neutral), green (positive)
-- Size by significance or left as fixed
 - Click to show EventInfoPanel
 
-**ACLED Conflicts (HeatmapLayer):**
-- Heat intensity by `fatalities` count
-- Red/orange heat colors for high-fatality areas
-- Click on cluster or point to show ConflictInfoPanel
+**GDELT Conflicts (HeatmapLayer):**
+- Heat intensity by `|tone| + 1` — more negative tone = more intense heat
+- Color range: red → orange → yellow
+- Click on cluster to show ConflictInfoPanel
 
 ### Filter Controls (Sidebar or Header)
 
 - Toggle: Show/Hide GDELT events
-- Toggle: Show/Hide ACLED conflicts
-- Time window selector for events (last 1h, 6h, 24h, 7d)
-- Conflict type filter (battles, protests, explosions, all)
+- Toggle: Show/Hide GDELT conflicts
 
 ---
 
@@ -238,77 +199,59 @@ backend/app/
 ├── services/
 │   ├── adsb_service.py       (existing)
 │   ├── ais_service.py        (existing)
-│   ├── gdelt_service.py      NEW
-│   └── acled_service.py      NEW
+│   ├── adsblol_service.py    (existing)
+│   ├── aisstream_service.py  (existing)
+│   └── gdelt_service.py      NEW
 ├── tasks/
-│   └── schedulers.py         UPDATE — add GDELT and ACLED schedulers
+│   └── schedulers.py         UPDATE — add GDELT scheduler
 ├── api/routes/
 │   ├── events.py             NEW — /api/events, /api/events/count, /api/events/{id}
-│   └── conflicts.py           NEW — /api/conflicts, /api/conflicts/count
-└── core/
-    └── models.py              UPDATE — add Event, Conflict Pydantic models
-
-backend/tests/
-├── test_gdelt_service.py      NEW
-└── test_acled_service.py      NEW
+│   └── conflicts.py           NEW — /api/conflicts, /api/conflicts/count, /api/conflicts/{id}
 
 frontend/src/
 ├── components/
-│   ├── Globe/                 UPDATE — add EventsLayer and ConflictsLayer
+│   ├── Globe/                 UPDATE — add events and conflicts layers
 │   ├── EventInfoPanel/        NEW
-│   └── ConflictInfoPanel/     NEW
-├── hooks/
-│   ├── useEvents.js           NEW
-│   └── useConflicts.js        NEW
-└── App.jsx                    UPDATE — add event/conflict state
-
-.env.example                    UPDATE — add ACLED_EMAIL, ACLED_PASSWORD
-
-docs/
-└── phases/phase4/
-    └── PHASE4_OVERVIEW.md     (this file)
+│   └── ConflictInfoPanel/      NEW
+└── App.jsx                    UPDATE — add event/conflict panel state
 ```
 
 ---
 
 ## Tasks Overview
 
-| # | Task | Description | Dependencies |
+|| # | Task | Description | Dependencies |
 |---|------|-------------|-------------|
-| 1 | Phase 4 docs + API research | Update ARCHITECTURE.md with event/conflict models, verify GDELT/ACLED API details | None |
-| 2 | GDELT backend service | gdelt_service.py — fetch, parse, normalize to Event model | Task 1 |
-| 3 | ACLED backend service | acled_service.py — OAuth auth, API call, parse, normalize to Conflict model | Task 1, ACLED credentials |
-| 4 | Event + Conflict REST endpoints | /api/events, /api/conflicts routes | Task 2, 3 |
-| 5 | Scheduler integration | Add GDELT (15min) and ACLED (daily) to schedulers | Task 2, 3 |
-| 6 | Events layer on globe | ScatterplotLayer for GDELT points, colored by tone | Task 1 |
-| 7 | Conflicts heatmap layer | HeatmapLayer for ACLED, intensity by fatalities | Task 1 |
-| 8 | Event + Conflict info panels | Slide-in panels for event/conflict details | Task 6, 7 |
-| 9 | Filter controls | Toggle events/conflicts, time window, conflict type | Task 6, 7, 8 |
-| 10 | WebSocket wiring | Verify event_batch and conflict_batch messages handled | Task 4, 6, 7 |
-| 11 | Integration test | Verify events and conflicts appear on globe | Tasks 4, 6, 7, 10 |
+| 1 | Phase 4 docs + API research | Update docs with GDELT event/conflict models | None |
+| 2 | GDELT backend service | gdelt_service.py — fetch, parse, normalize to WorldEvent | Task 1 |
+| 3 | Event + Conflict REST endpoints | /api/events, /api/conflicts routes | Task 2 |
+| 4 | Scheduler integration | Add GDELT (15min configurable) to schedulers | Task 2 |
+| 5 | Events layer on globe | ScatterplotLayer for GDELT points, colored by tone | Task 1 |
+| 6 | Conflicts heatmap layer | HeatmapLayer for GDELT violent events, intensity by tone | Task 1 |
+| 7 | Event + Conflict info panels | Slide-in panels for event/conflict details | Task 5, 6 |
+| 8 | WebSocket wiring | Verify event_batch and conflict_batch messages handled | Task 3, 5, 6 |
+| 9 | Integration test | Verify events and conflicts appear on globe | Tasks 4, 5, 6, 8 |
 
 ---
 
 ## Verification Checklist
 
-- [ ] GDELT service fetches and parses correctly
-- [ ] ACLED service authenticates via OAuth and fetches correctly
-- [ ] /api/events returns GDELT events
-- [ ] /api/conflicts returns ACLED conflicts
-- [ ] Events appear as colored points on globe
-- [ ] Conflicts appear as heatmap overlay
-- [ ] EventInfoPanel shows event_text, tone, category, source_url
-- [ ] ConflictInfoPanel shows event_type, fatalities, country, date
-- [ ] Filter controls toggle layers correctly
-- [ ] WebSocket broadcasts event_batch and conflict_batch
-- [ ] Backend runs without ACLED credentials (GDELT-only fallback)
-- [ ] All existing plane and ship functionality unchanged
+- [x] GDELT service fetches and parses correctly
+- [x] /api/events returns GDELT events
+- [x] /api/conflicts returns only violent GDELT events
+- [x] Events appear as colored points on globe (tone-colored ScatterplotLayer)
+- [x] Conflicts appear as heatmap overlay (ScatterplotLayer intensity by |tone|)
+- [x] EventInfoPanel shows event_text, tone, category, date, source_url
+- [x] ConflictInfoPanel shows event_text, tone, category, date, source_url
+- [x] WebSocket broadcasts event_batch and conflict_batch
+- [x] All existing plane and ship functionality unchanged
+- [x] GDELT YYYYMM dates normalized to full ISO dates for SQLite compatibility
 
 ---
 
 ## Constraints
 
-- **Free APIs only** — GDELT is free, ACLED requires free registration only
+- **Free APIs only** — GDELT requires no API key
 - **Don't remove existing features** — planes and ships remain primary
 - **Existing payload contracts unchanged** — new message types are additive
 - **No zone alerting** — that's Phase 6

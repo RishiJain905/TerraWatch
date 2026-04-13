@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
 from app.core.database import get_db
+from app.core.models import WorldEvent
 
 router = APIRouter(prefix="/api/conflicts", tags=["conflicts"])
 
@@ -29,9 +30,9 @@ async def get_conflict_count(db: aiosqlite.Connection = Depends(get_db)):
         return {"count": row["count"]}
 
 
-@router.get("/{conflict_id}", response_model=dict)
+@router.get("/{conflict_id}", response_model=WorldEvent | None)
 async def get_conflict(conflict_id: str, db: aiosqlite.Connection = Depends(get_db)):
-    """Get details for a specific violent event by id."""
+    """Get details for a specific violent event by id. Returns None if not found."""
     normalized_id = conflict_id.strip()
     placeholders = ",".join("?" for _ in VIOLENT_CATEGORIES)
     async with db.execute(
@@ -39,9 +40,7 @@ async def get_conflict(conflict_id: str, db: aiosqlite.Connection = Depends(get_
         [normalized_id, *VIOLENT_CATEGORIES],
     ) as cursor:
         row = await cursor.fetchone()
-        if row is None:
-            return JSONResponse(status_code=404, content={"detail": "Conflict not found"})
-        return dict(row)
+        return dict(row) if row else None
 
 
 @router.get("", response_model=list)

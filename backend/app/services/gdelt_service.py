@@ -82,8 +82,9 @@ def _parse_date(date_str: str) -> str:
             return dt.strftime("%Y-%m-%d")
         elif len(date_str) == 6:
             # GDELT 2.0 sometimes uses YYYYMM (e.g., "202504")
+            # Normalize to full ISO date so SQLite julianday() works correctly
             dt = datetime.strptime(date_str, "%Y%m")
-            return dt.strftime("%Y-%m")
+            return dt.strftime("%Y-%m-01")
     except (ValueError, TypeError, IndexError):
         pass
     return date_str

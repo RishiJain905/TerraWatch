@@ -7,6 +7,7 @@ Free registration: https://opensky-network.org/register
 
 from __future__ import annotations
 
+import asyncio
 import httpx
 from datetime import datetime, timezone, timedelta
 from math import isfinite
@@ -37,29 +38,19 @@ class OpenSkyTokenManager:
         self._token: str | None = None
         self._expires_at: datetime | None = None
         self._http_client = http_client
-        self._lock = False  # Prevent concurrent token refreshes
+        self._lock = asyncio.Lock()  # Async-safe lock for concurrent token refresh
 
     async def _ensure_token(self) -> str:
         """Return a valid access token, refreshing if necessary."""
         if self._token and self._expires_at and datetime.now(timezone.utc) < self._expires_at:
             return self._token
 
-        # Prevent concurrent refreshes
-        if self._lock:
-            # Another coroutine is already refreshing; wait briefly and return current token
-            import asyncio
-            for _ in range(10):
-                await asyncio.sleep(0.5)
-                if self._token and self._expires_at and datetime.now(timezone.utc) < self._expires_at:
-                    return self._token
-            # If still expired after waiting, try anyway
-        self._lock = True
-        try:
+        async with self._lock:
+            # Re-check after acquiring lock — another coroutine may have refreshed
+            if self._token and self._expires_at and datetime.now(timezone.utc) < self._expires_at:
+                return self._token
             await self._refresh_token()
-        finally:
-            self._lock = False
-
-        return self._token or ""
+            return self._token or ""
 
     async def _refresh_token(self) -> None:
         """Exchange client credentials for a new access token."""

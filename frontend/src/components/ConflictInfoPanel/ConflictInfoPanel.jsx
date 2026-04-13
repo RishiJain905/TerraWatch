@@ -1,12 +1,5 @@
 import './ConflictInfoPanel.css'
 
-function fatalitiesBadgeClass(fatalities) {
-  if (fatalities == null) return 'fatalities-zero'
-  if (fatalities > 10) return 'fatalities-high'
-  if (fatalities >= 1) return 'fatalities-medium'
-  return 'fatalities-zero'
-}
-
 function formatDate(dateStr) {
   if (!dateStr) return '—'
   const d = new Date(dateStr)
@@ -18,31 +11,44 @@ function formatDate(dateStr) {
   })
 }
 
+function formatTone(tone) {
+  if (tone == null) return '—'
+  return tone.toFixed(2)
+}
+
+function toneBadgeClass(tone) {
+  if (tone == null) return 'tone-neutral'
+  if (tone < -2) return 'tone-negative'
+  if (tone > 2) return 'tone-positive'
+  return 'tone-neutral'
+}
+
+function formatPosition(lat, lon) {
+  if (lat == null || lon == null) return '—'
+  return `${lat.toFixed(4)}°, ${lon.toFixed(4)}°`
+}
+
 export default function ConflictInfoPanel({ conflict, onClose }) {
   if (!conflict) return null
 
   return (
     <div className="plane-info-panel">
       <div className="plane-info-header">
-        <h3>{conflict.event_type || 'Conflict'}</h3>
+        <h3>{conflict.event_text || conflict.category || 'Conflict'}</h3>
         <button className="close-btn" onClick={onClose}>×</button>
       </div>
       <div className="plane-info-grid">
         <div className="info-row">
-          <span className="info-label">Fatalities</span>
+          <span className="info-label">Tone</span>
           <span className="info-value">
-            <span className={`fatalities-badge ${fatalitiesBadgeClass(conflict.fatalities)}`}>
-              {conflict.fatalities ?? 0}
+            <span className={`tone-badge ${toneBadgeClass(conflict.tone)}`}>
+              {formatTone(conflict.tone)}
             </span>
           </span>
         </div>
         <div className="info-row">
-          <span className="info-label">Country</span>
-          <span className="info-value">{conflict.country || '—'}</span>
-        </div>
-        <div className="info-row">
-          <span className="info-label">Region</span>
-          <span className="info-value">{conflict.region || '—'}</span>
+          <span className="info-label">Category</span>
+          <span className="info-value">{conflict.category || '—'}</span>
         </div>
         <div className="info-row">
           <span className="info-label">Date</span>
@@ -51,9 +57,21 @@ export default function ConflictInfoPanel({ conflict, onClose }) {
         <div className="info-row">
           <span className="info-label">Position</span>
           <span className="info-value mono">
-            {conflict.lat?.toFixed(4)}°, {conflict.lon?.toFixed(4)}°
+            {formatPosition(conflict.lat, conflict.lon)}
           </span>
         </div>
+        {conflict.source_url && (
+          <div className="info-row full-width">
+            <a
+              className="source-link"
+              href={conflict.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              View Source →
+            </a>
+          </div>
+        )}
       </div>
     </div>
   )

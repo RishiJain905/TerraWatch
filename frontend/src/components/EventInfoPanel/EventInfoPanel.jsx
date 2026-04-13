@@ -57,7 +57,9 @@ export default function EventInfoPanel({ event, onClose }) {
         <div className="info-row">
           <span className="info-label">Position</span>
           <span className="info-value mono">
-            {event.lat?.toFixed(4)}°, {event.lon?.toFixed(4)}°
+            {event.lat != null && event.lon != null
+              ? `${event.lat.toFixed(4)}°, ${event.lon.toFixed(4)}°`
+              : '—'}
           </span>
         </div>
         {event.source_url && (

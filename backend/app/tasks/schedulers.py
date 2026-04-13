@@ -46,7 +46,7 @@ SHIP_REFRESH_INTERVAL_SECONDS = settings.AIS_REFRESH_SECONDS
 SHIP_STALE_AGE_MINUTES = 10
 AISSTREAM_BATCH_INTERVAL_SECONDS = settings.AISSTREAM_BATCH_INTERVAL_SECONDS
 
-GDELT_REFRESH_SECONDS = 900  # 15 minutes
+GDELT_REFRESH_SECONDS = settings.GDELT_REFRESH_SECONDS
 
 # GDELT categories considered violent — used to populate the conflicts heatmap
 VIOLENT_GDELT_CATEGORIES = [
@@ -354,9 +354,6 @@ async def aisstream_listener_loop(
 
 async def gdelt_refresh_loop(interval_seconds: int = GDELT_REFRESH_SECONDS):
     """Continuously refresh GDELT events without dying on transient failures."""
-    # Fire immediately on startup, then every interval_seconds
-    await _gdelt_fetch_and_broadcast()
-
     while True:
         try:
             await _gdelt_fetch_and_broadcast()

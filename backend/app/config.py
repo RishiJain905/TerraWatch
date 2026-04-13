@@ -23,6 +23,7 @@ class Settings:
     ADSBLOL_REFRESH_SECONDS: int = int(os.getenv("ADSBLOL_REFRESH_SECONDS", "30"))
     AIS_REFRESH_SECONDS: int = int(os.getenv("AIS_REFRESH_SECONDS", "60"))
     AISSTREAM_BATCH_INTERVAL_SECONDS: int = int(os.getenv("AISSTREAM_BATCH_INTERVAL_SECONDS", "30"))
+    GDELT_REFRESH_SECONDS: int = int(os.getenv("GDELT_REFRESH_SECONDS", "900"))  # 15 minutes
 
     # Database
     DATABASE_URL: str = "sqlite:///./terrawatch.db"
