@@ -504,10 +504,18 @@ async def upsert_events(
 
     normalized_events = []
     for event in events:
+        # GDELT uses "YYYYMM" format (e.g. "202504"). Convert to ISO "YYYY-MM-01"
+        # so julianday() correctly parses it for the delete_old_events age filter.
+        raw_date = event.get("date") or ""
+        if len(raw_date) == 6 and raw_date.isdigit():
+            normalized_date = f"{raw_date[:4]}-{raw_date[4:6]}-01"
+        else:
+            normalized_date = raw_date
+
         normalized_events.append(
             {
                 "id": event["id"],
-                "date": event.get("date"),
+                "date": normalized_date,
                 "lat": event.get("lat"),
                 "lon": event.get("lon"),
                 "event_text": event.get("event_text", ""),
