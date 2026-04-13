@@ -174,7 +174,10 @@ class AisstreamServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(batch), 1)
         self.assertEqual(batch[0]["id"], "111000111")
         self.assertEqual(batch[0]["ship_type"], "tanker")
-        self.assertEqual(service._ships, {})
+        # Ships are retained across batch boundaries so partial ships (position without
+        # metadata, or metadata without position) can continue merging in subsequent
+        # batches. Downstream deduplication handles any duplicate entries.
+        self.assertIn("111000111", service._ships)
         await listener.aclose()
         await service.close()
 

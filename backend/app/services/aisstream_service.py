@@ -222,7 +222,11 @@ class AisstreamService:
                     elapsed = self._time() - batch_started_at
                     if elapsed >= batch_interval:
                         batch = list(self._ships.values())
-                        self._ships.clear()
+                        # Do NOT clear self._ships — partial ships (position without metadata,
+                        # or metadata without position) must be retained so subsequent messages
+                        # can merge against the existing partial state within the same flush
+                        # window. A ship that was already sent in the last batch will be
+                        # re-sent here; the deduplication layer downstream handles dupes.
                         batch_started_at = self._time()
                         if batch:
                             yield batch
@@ -235,7 +239,7 @@ class AisstreamService:
                         await self._handle_message(raw_message)
                     except asyncio.TimeoutError:
                         batch = list(self._ships.values())
-                        self._ships.clear()
+                        # Retain all ship state across batch boundaries — see note above.
                         batch_started_at = self._time()
                         if batch:
                             yield batch

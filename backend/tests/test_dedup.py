@@ -317,11 +317,11 @@ class TestShipDeduplication(DedupTestCase):
         self.assertEqual(merged["111000111"]["name"], "DT-A")
         self.assertEqual(merged["111000111"]["destination"], "FI TKU")
         self.assertEqual(merged["111000111"]["heading"], 15.0)
-        self.assertEqual(merged["111000111"]["sources"], ["digitraffic", "ais_friends"])
+        self.assertEqual(merged["111000111"]["sources"], ["digitraffic", "aisstream"])
         self.assertEqual(merged["222000222"]["name"], "DT-B")
         self.assertEqual(merged["222000222"]["destination"], "FI HEL")
         self.assertEqual(merged["222000222"]["heading"], 25.0)
-        self.assertEqual(merged["222000222"]["sources"], ["digitraffic", "ais_friends"])
+        self.assertEqual(merged["222000222"]["sources"], ["digitraffic", "aisstream"])
 
     def test_full_ship_overlap_different_timestamps_newer_wins(self):
         digitraffic = [self.make_ship("111000111", self.iso_now(-180), name="OLDER", heading=10.0)]
@@ -342,7 +342,7 @@ class TestShipDeduplication(DedupTestCase):
         self.assertEqual(merged[0]["name"], "NEWER")
         self.assertEqual(merged[0]["heading"], 222.0)
         self.assertEqual(merged[0]["destination"], "EE TLL")
-        self.assertEqual(merged[0]["sources"], ["digitraffic", "ais_friends"])
+        self.assertEqual(merged[0]["sources"], ["digitraffic", "aisstream"])
 
     def test_partial_ship_overlap(self):
         digitraffic = [
@@ -481,7 +481,7 @@ class TestShipDeduplication(DedupTestCase):
         self.assertEqual(merged[0]["destination"], "EE TLL")
         self.assertEqual(merged[0]["heading"], 115.0)
         self.assertEqual(merged[0]["timestamp"], ais_friends[0]["timestamp"])
-        self.assertEqual(merged[0]["sources"], ["digitraffic", "ais_friends"])
+        self.assertEqual(merged[0]["sources"], ["digitraffic", "aisstream"])
 
     def test_ship_last_position_alias_is_used_for_filtering_and_conflict_resolution(self):
         alias_timestamp = self.iso_now(-20)
@@ -517,7 +517,7 @@ class TestShipDeduplication(DedupTestCase):
         self.assertEqual(merged[0]["destination"], "FI TKU")
         self.assertEqual(merged[0]["heading"], 25.0)
         self.assertEqual(merged[0]["timestamp"], alias_timestamp)
-        self.assertEqual(merged[0]["sources"], ["digitraffic", "ais_friends"])
+        self.assertEqual(merged[0]["sources"], ["digitraffic", "aisstream"])
 
     def test_last_position_alias_overrides_invalid_ship_timestamp(self):
         alias_timestamp = self.iso_now(-12)
@@ -551,7 +551,7 @@ class TestShipDeduplication(DedupTestCase):
         self.assertEqual(merged[0]["destination"], "FI TKU")
         self.assertEqual(merged[0]["heading"], 35.0)
         self.assertEqual(merged[0]["timestamp"], alias_timestamp)
-        self.assertEqual(merged[0]["sources"], ["digitraffic", "ais_friends"])
+        self.assertEqual(merged[0]["sources"], ["digitraffic", "aisstream"])
 
     def test_missing_ship_timestamp_digitraffic_priority_is_reachable(self):
         digitraffic = [
@@ -581,7 +581,7 @@ class TestShipDeduplication(DedupTestCase):
         self.assertEqual(merged[0]["destination"], "FI TKU")
         self.assertEqual(merged[0]["heading"], 15.0)
         self.assertIsNone(merged[0]["timestamp"])
-        self.assertEqual(merged[0]["sources"], ["digitraffic", "ais_friends"])
+        self.assertEqual(merged[0]["sources"], ["digitraffic", "aisstream"])
 
     def test_same_source_ship_duplicates_prefer_newer_timestamp(self):
         digitraffic = [

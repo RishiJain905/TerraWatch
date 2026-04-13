@@ -106,7 +106,7 @@ Mutually exclusive w/ plane panel"]
 | 1 | Foundation Setup | Complete | FastAPI backend, React + deck.gl frontend, Docker Compose, REST API + WebSocket pipeline |
 | 2 | Live Aircraft Tracking | Complete | OpenSky integration (~12,000 aircraft), 30s refresh, directional icons, PlaneInfoPanel |
 | 3 | Live Ship Tracking | Complete | Digitraffic integration (Nordic/Baltic), 60s refresh, type-colored icons, ShipInfoPanel, mutual exclusion |
-| 4–7 | Events / Conflicts / Alerting | Planned | GDELT events, ALED conflict heatmap, zone alerting, production hardening |
+| 4–7 | Events / Conflicts / Alerting | Planned | GDELT events, ACLED conflict heatmap, zone alerting, production hardening |
 
 ### Phase 1 — Foundation Setup
 

@@ -9,7 +9,7 @@ from pydantic import ValidationError
 PLANE_SOURCE_PRIORITY = "open_sky"
 PLANE_SECONDARY_SOURCE = "adsblol"
 SHIP_SOURCE_PRIORITY = "digitraffic"
-SHIP_SECONDARY_SOURCE = "ais_friends"
+SHIP_SECONDARY_SOURCE = "aisstream"
 MAX_FUTURE_SKEW_SECONDS = 30
 PLANE_TIMESTAMP_ALIASES = ("time_position",)
 SHIP_TIMESTAMP_ALIASES = ("last_position",)
