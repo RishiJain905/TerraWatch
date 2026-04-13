@@ -1,3 +1,5 @@
+import logging
+import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -11,6 +13,19 @@ from app.tasks.schedulers import start_schedulers, stop_schedulers
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Configure root logger so schedulers can write to stdout.
+    # Must be done inside lifespan (after uvicorn fork) so we can override
+    # uvicorn's default handlers rather than inheriting them.
+    root = logging.getLogger()
+    if not any(isinstance(h, logging.StreamHandler) for h in root.handlers):
+        root.setLevel(logging.INFO)
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(logging.Formatter("%(name)s %(levelname)s %(message)s"))
+        root.addHandler(handler)
+    # Silence noisy third-party loggers
+    for noisy in ["httpx", "httpcore", "uvicorn.access", "uvicorn.error"]:
+        logging.getLogger(noisy).setLevel(logging.WARNING)
+
     # Startup
     await init_db()
     await start_schedulers()
