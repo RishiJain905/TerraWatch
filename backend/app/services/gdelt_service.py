@@ -3,7 +3,7 @@ GDELT Service — fetches world events from the GDELT Project.
 
 GDELT publishes hourly CSV export files. This service:
 1. Fetches the latest export file list from the GDELT lastupdate endpoint
-2. Downloads and stream-parses the CSV (pipe-delimited)
+2. Downloads and stream-parses the CSV (tab-delimited)
 3. Normalizes each row to the WorldEvent contract
 """
 
@@ -69,6 +69,8 @@ EVENT_CODE_DESCRIPTION: dict[str, str] = {
 
 def _parse_date(date_str: str) -> str:
     """Parse GDELT date formats to ISO date string."""
+    if not date_str:
+        return date_str
     try:
         if len(date_str) == 14:
             # DATEADDED format: YYYYMMDDHHMMSS
@@ -78,7 +80,11 @@ def _parse_date(date_str: str) -> str:
             # SQLDATE format: YYYYMMDD
             dt = datetime.strptime(date_str, "%Y%m%d")
             return dt.strftime("%Y-%m-%d")
-    except (ValueError, TypeError):
+        elif len(date_str) == 6:
+            # GDELT 2.0 sometimes uses YYYYMM (e.g., "202504")
+            dt = datetime.strptime(date_str, "%Y%m")
+            return dt.strftime("%Y-%m")
+    except (ValueError, TypeError, IndexError):
         pass
     return date_str
 
@@ -87,12 +93,12 @@ def _safe_float(value: str) -> float:
     """Parse a float from a string, returning 0.0 on failure."""
     try:
         return float(value)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, IndexError):
         return 0.0
 
 
 def _parse_csv_line(line: str) -> list[str]:
-    """Parse a pipe-delimited GDELT CSV line."""
+    """Parse a tab-delimited GDELT CSV line."""
     return line.strip().split("\t")
 
 
@@ -159,7 +165,7 @@ async def _download_and_parse_csv(client: httpx.AsyncClient, csv_url: str) -> li
             try:
                 lat = float(action_lat)
                 lon = float(action_lon)
-            except (ValueError, TypeError):
+            except (ValueError, TypeError, IndexError):
                 continue
 
             global_event_id = columns[_COL_GLOBAL_EVENT_ID].strip()
@@ -179,7 +185,7 @@ async def _download_and_parse_csv(client: httpx.AsyncClient, csv_url: str) -> li
             )
             event_text = description
 
-            # Parse date
+            # Parse date — prefer SQLDATE if valid, fallback to DATEADDED
             date = _parse_date(sql_date) if sql_date else _parse_date(date_added)
 
             event = {
