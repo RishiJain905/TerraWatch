@@ -192,13 +192,13 @@ frontend/src/components/
 ├── EventsLayer/          NEW — ScatterplotLayer for GDELT events
 ├── ConflictsLayer/       NEW — HeatmapLayer for ACLED conflict intensity
 ├── EventInfoPanel/       NEW — Slide-in panel for event details
-└── ConflictInfoPanel/    NEW — Slide-in panel for conflict details
+└── ConflictInfoPanel/   NEW — Slide-in panel for conflict details
 ```
 
 ```
 frontend/src/hooks/
 ├── useEvents.js          NEW — event state + WS event_batch handling
-└── useConflicts.js      NEW — conflict state + WS conflict_batch handling
+└── useConflicts.js       NEW — conflict state + WS conflict_batch handling
 ```
 
 ### Layer Design
@@ -235,7 +235,7 @@ backend/app/
 │   └── schedulers.py         UPDATE — add GDELT and ACLED schedulers
 ├── api/routes/
 │   ├── events.py             NEW — /api/events, /api/events/count, /api/events/{id}
-│   └── conflicts.py          NEW — /api/conflicts, /api/conflicts/count
+│   └── conflicts.py           NEW — /api/conflicts, /api/conflicts/count
 └── core/
     └── models.py             UPDATE — add Event, Conflict Pydantic models
 
@@ -247,10 +247,10 @@ frontend/src/
 ├── components/
 │   ├── Globe/                UPDATE — add EventsLayer and ConflictsLayer
 │   ├── EventInfoPanel/       NEW
-│   └── ConflictInfoPanel/     NEW
+│   └── ConflictInfoPanel/    NEW
 ├── hooks/
 │   ├── useEvents.js          NEW
-│   └── useConflicts.js        NEW
+│   └── useConflicts.js       NEW
 └── App.jsx                   UPDATE — add event/conflict state
 
 .env.example                   UPDATE — add ACLED_API_KEY
@@ -264,19 +264,19 @@ docs/
 
 ## Tasks Overview
 
-| # | Agent | Task | Description | Dependencies |
-|---|-------|------|-------------|-------------|
-| 1 | GLM 5.1 | Phase 4 docs + API research | Update ARCHITECTURE.md with event/conflict models, verify GDELT/ACLED API details | None |
-| 2 | GLM 5.1 | GDELT backend service | gdelt_service.py — fetch, parse, normalize to Event model | Task 1 |
-| 3 | GLM 5.1 | ACLED backend service | acled_service.py — CSV fetch, parse, normalize to Conflict model | Task 1, ACLED_API_KEY |
-| 4 | GLM 5.1 | Event + Conflict REST endpoints | /api/events, /api/conflicts routes | Task 2, 3 |
-| 5 | GLM 5.1 | Scheduler integration | Add GDELT (15min) and ACLED (daily) to schedulers | Task 2, 3 |
-| 6 | GLM 5.1 | Events layer on globe | ScatterplotLayer for GDELT points, colored by tone | Task 1 |
-| 7 | GLM 5.1 | Conflicts heatmap layer | HeatmapLayer for ACLED, intensity by fatalities | Task 1 |
-| 8 | GLM 5.1 | Event + Conflict info panels | Slide-in panels for event/conflict details | Task 6, 7 |
-| 9 | GLM 5.1 | Filter controls | Toggle events/conflicts, time window, conflict type | Task 6, 7, 8 |
-| 10 | GLM 5.1 | WebSocket wiring | Verify event_batch and conflict_batch messages handled | Task 4, 6, 7 |
-| 11 | M2.7 | Integration test | Verify events and conflicts appear on globe | Tasks 4, 6, 7, 10 |
+| # | Task | Description | Dependencies |
+|---|------|-------------|-------------|
+| 1 | Phase 4 docs + API research | Update ARCHITECTURE.md with event/conflict models, verify GDELT/ACLED API details | None |
+| 2 | GDELT backend service | gdelt_service.py — fetch, parse, normalize to Event model | Task 1 |
+| 3 | ACLED backend service | acled_service.py — CSV fetch, parse, normalize to Conflict model | Task 1, ACLED_API_KEY |
+| 4 | Event + Conflict REST endpoints | /api/events, /api/conflicts routes | Task 2, 3 |
+| 5 | Scheduler integration | Add GDELT (15min) and ACLED (daily) to schedulers | Task 2, 3 |
+| 6 | Events layer on globe | ScatterplotLayer for GDELT points, colored by tone | Task 1 |
+| 7 | Conflicts heatmap layer | HeatmapLayer for ACLED, intensity by fatalities | Task 1 |
+| 8 | Event + Conflict info panels | Slide-in panels for event/conflict details | Task 6, 7 |
+| 9 | Filter controls | Toggle events/conflicts, time window, conflict type | Task 6, 7, 8 |
+| 10 | WebSocket wiring | Verify event_batch and conflict_batch messages handled | Task 4, 6, 7 |
+| 11 | Integration test | Verify events and conflicts appear on globe | Tasks 4, 6, 7, 10 |
 
 ---
 
