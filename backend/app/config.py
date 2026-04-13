@@ -9,9 +9,15 @@ class Settings:
     HOST: str = "0.0.0.0"
     PORT: int = 8000
 
-    # Data refresh intervals (ms)
-    ADSB_REFRESH_SECONDS: int = 30
-    AIS_REFRESH_SECONDS: int = 60
+    # Data source configuration
+    ADSBLOL_API_URL: str = os.getenv("ADSBLOL_API_URL", "https://api.adsb.lol/aircraft/json")
+    AISSTREAM_API_KEY: str = os.getenv("AISSTREAM_API_KEY", "")
+
+    # Data refresh intervals (seconds)
+    ADSB_REFRESH_SECONDS: int = int(os.getenv("ADSB_REFRESH_SECONDS", "30"))
+    ADSBLOL_REFRESH_SECONDS: int = int(os.getenv("ADSBLOL_REFRESH_SECONDS", "30"))
+    AIS_REFRESH_SECONDS: int = int(os.getenv("AIS_REFRESH_SECONDS", "60"))
+    AISSTREAM_BATCH_INTERVAL_SECONDS: int = int(os.getenv("AISSTREAM_BATCH_INTERVAL_SECONDS", "30"))
 
     # Database
     DATABASE_URL: str = "sqlite:///./terrawatch.db"

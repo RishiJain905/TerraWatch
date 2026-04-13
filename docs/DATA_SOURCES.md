@@ -190,13 +190,44 @@ Returns a JSON array of vessel metadata objects with name, destination, shipType
 
 ---
 
-### AISStream.io (WebSocket — Future Option)
+### AISStream.io (WebSocket) — PREFERRED SECONDARY / GLOBAL API
 
-**What it is:** Global AIS data via WebSocket. Requires free API key signup at https://aisstream.io/ (GitHub OAuth).
+**What it is:** Global AIS data delivered over a persistent WebSocket stream. Requires a free API key from https://aisstream.io/ (GitHub OAuth).
 
 **Endpoint:** `wss://stream.aisstream.io/v0/stream`
 
-**Status:** Not implemented in V1. Requires API key and WebSocket client instead of simple REST polling. Global coverage is a future upgrade path.
+**Auth:** Send `APIKey` in the subscription payload immediately after connect.
+
+**Coverage:** Global volunteer-fed AIS stream. Used in TerraWatch as the preferred secondary ship source to complement Digitraffic's Nordic/Baltic focus.
+
+**Implementation status:** Implemented in Phase 1.5. TerraWatch keeps the existing ship payload contract, buffers streamed ships by MMSI, emits incremental batches every 30 seconds, and merges them with the latest Digitraffic snapshot before persistence and broadcast.
+
+**Live message format used by TerraWatch:** Wrapped JSON messages such as:
+```json
+{
+  "MessageType": "PositionReport",
+  "MetaData": {
+    "ShipName": "VESSEL NAME",
+    "latitude": 59.288612,
+    "longitude": 18.915412,
+    "time_utc": "2026-04-11T01:44:52Z"
+  },
+  "Message": {
+    "PositionReport": {
+      "UserID": 265510570,
+      "Latitude": 59.288612,
+      "Longitude": 18.915412,
+      "Cog": 167.1,
+      "Sog": 0.0,
+      "TrueHeading": 194,
+      "ShipType": 0,
+      "Destination": ""
+    }
+  }
+}
+```
+
+**Operational note:** TerraWatch falls back to Digitraffic-only behavior when `AISSTREAM_API_KEY` is not configured.
 
 ---
 
@@ -212,14 +243,15 @@ Returns a JSON array of vessel metadata objects with name, destination, shipType
 
 ---
 
-**Data provided by Digitraffic:**
+**Data provided by TerraWatch's ship pipeline:**
 - MMSI (Maritime Mobile Service Identity) — used as ship `id`
-- Position (lon, lat via GeoJSON coordinates)
-- Heading (cog — course over ground, in degrees)
-- Speed (sog — speed over ground, in knots)
+- Position (lon/lat from Digitraffic GeoJSON or aisstream wrapped payloads)
+- Heading (`heading`, `Cog`, or `COG`, normalized to degrees)
+- Speed (`sog`, `Sog`, or `SOG`, normalized to knots)
 - Ship name
 - Destination port
-- Ship type (numeric AIS code → mapped to string)
+- Ship type (numeric AIS code → mapped to stable frontend categories)
+- Timestamp normalized to ISO-8601 for merge/dedup decisions
 
 ---
 
@@ -318,7 +350,8 @@ No API key needed for basic usage.
 | Source | V1 Refresh Rate | Method |
 |--------|----------------|--------|
 | OpenSky Network | Every 30 seconds | asyncio scheduler |
-| AIS/Digitraffic (Finland) | Every 60 seconds | BackgroundTask scheduler (httpx, gzip) |
+| AIS/Digitraffic (Finland) | Every 60 seconds | Background scheduler polling (httpx, gzip) |
+| AISStream.io | Every 30 seconds batch emit | Persistent WebSocket listener + batch merge |
 | GDELT | Every hour | Scheduled job (downloading latest export) |
 | ACLED | Once per day | Manual/scheduled CSV refresh |
 

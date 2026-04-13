@@ -16,6 +16,7 @@
     "@deck.gl/layers": "^9.0.35",
     "@deck.gl/react": "^9.0.35",
     "@luma.gl/core": "^9.0.35",
+    "@luma.gl/webgl": "^9.0.35",
     "mapbox-gl": "^3.8.0",
     "@mapbox/mapbox-gl-style-spec": "^14.3.0"
   },

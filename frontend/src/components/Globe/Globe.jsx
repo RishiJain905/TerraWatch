@@ -64,7 +64,7 @@ export default function Globe({ layers, onEntityClick }) {
     id: 'base-tiles',
     data: 'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
     minZoom: 0,
-    maxZoom: 19,
+    maxZoom: 10,
     tileSize: 256,
     pickable: false,
     renderSubLayers: (props) => {
