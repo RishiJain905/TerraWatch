@@ -51,6 +51,12 @@ AISSTREAM_BATCH_INTERVAL_SECONDS = settings.AISSTREAM_BATCH_INTERVAL_SECONDS
 GDELT_REFRESH_SECONDS = 900  # 15 minutes
 ACLED_REFRESH_SECONDS = 86400  # 24 hours
 
+# GDELT categories considered violent — used to populate the conflicts heatmap
+VIOLENT_GDELT_CATEGORIES = [
+    "assault", "fight", "unconventional_mass_gvc",
+    "conventional_mass_gvc", "force_range", "rioting",
+]
+
 _scheduler_tasks: list[asyncio.Task] = []
 _ship_state_lock: asyncio.Lock | None = None
 _ship_state_lock_loop: asyncio.AbstractEventLoop | None = None
@@ -382,7 +388,13 @@ async def _gdelt_fetch_and_broadcast():
             raise
 
     await broadcast_event_batch(events)
-    logger.info("GDELT refresh: persisted %d events", len(events))
+
+    # Also broadcast violent events as conflicts for the heatmap layer
+    violent_events = [e for e in events if e.get("category") in VIOLENT_GDELT_CATEGORIES]
+    if violent_events:
+        await broadcast_conflict_batch(violent_events)
+
+    logger.info("GDELT refresh: persisted %d events (%d violent/conflicts)", len(events), len(violent_events))
 
 
 async def _acled_fetch_and_broadcast():
