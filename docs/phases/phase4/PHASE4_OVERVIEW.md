@@ -65,19 +65,27 @@ Before any implementation, read:
 |-----------|--------|
 | **What** | Armed conflict and political violence events |
 | **Coverage** | Global, 1997–present |
-| **Auth** | Free registration required at acleddna.com |
-| **Refresh** | Daily CSV download |
-| **Format** | CSV download |
-| **Key page** | https://www.acleddna.com/acleddatanew/access-all-data/ |
+| **Auth** | OAuth Bearer token (free registration at acleddata.com) |
+| **Refresh** | Daily via API |
+| **Format** | JSON or CSV via API |
+| **Key pages** | https://acleddata.com/register (signup), https://acleddata.com/acled-api-documentation (docs) |
+
+**Auth flow:**
+1. `POST https://acleddata.com/oauth/token` with username, password, grant_type=password, client_id=acled
+2. Returns `access_token` (Bearer, 24hr valid) + `refresh_token` (14 days valid)
+3. Use `Authorization: Bearer {token}` header on subsequent API calls
+4. Refresh token when expired
+
+**API endpoint:** `https://acleddata.com/api/acled/read?_format=json`
 
 **Key fields:**
 - `latitude`, `longitude` — event location
 - `event_type` — battles, explosions, riots, protests, etc.
 - `fatalities` — death count
-- `date` — event date
+- `event_date` — event date
 - `country`, `region`
 
-**ACLED registration:** User must register at acleddna.com for a free API key or direct CSV download access. Document the registration process in `.env.example`.
+**Registration:** User must register at https://acleddata.com/register. Document credentials in `.env.example`.
 
 ---
 
@@ -88,7 +96,7 @@ Before any implementation, read:
 ```
 backend/app/services/
 ├── gdelt_service.py      NEW — fetch GDELT events, parse, normalize
-└── acled_service.py      NEW — fetch ACLED conflicts, parse, normalize
+└── acled_service.py      NEW — fetch ACLED conflicts via OAuth API, parse, normalize
 ```
 
 ### New Database Tables
@@ -172,13 +180,14 @@ CREATE TABLE conflicts (
 | Service | Refresh Rate | Method |
 |---------|-------------|--------|
 | GDELT | Every 15 minutes | Download latest export, diff against DB |
-| ACLED | Once per day | Download CSV, replace/upsert |
+| ACLED | Once per day | OAuth token refresh + API call |
 
 ### Environment Variables
 
 ```
 # .env.example additions
-ACLED_API_KEY=        # Free registration at acleddna.com
+ACLED_EMAIL=         # Registered email at acleddata.com
+ACLED_PASSWORD=     # Account password
 ```
 
 ---
@@ -237,27 +246,27 @@ backend/app/
 │   ├── events.py             NEW — /api/events, /api/events/count, /api/events/{id}
 │   └── conflicts.py           NEW — /api/conflicts, /api/conflicts/count
 └── core/
-    └── models.py             UPDATE — add Event, Conflict Pydantic models
+    └── models.py              UPDATE — add Event, Conflict Pydantic models
 
 backend/tests/
-├── test_gdelt_service.py     NEW
-└── test_acled_service.py     NEW
+├── test_gdelt_service.py      NEW
+└── test_acled_service.py      NEW
 
 frontend/src/
 ├── components/
-│   ├── Globe/                UPDATE — add EventsLayer and ConflictsLayer
-│   ├── EventInfoPanel/       NEW
-│   └── ConflictInfoPanel/    NEW
+│   ├── Globe/                 UPDATE — add EventsLayer and ConflictsLayer
+│   ├── EventInfoPanel/        NEW
+│   └── ConflictInfoPanel/     NEW
 ├── hooks/
-│   ├── useEvents.js          NEW
-│   └── useConflicts.js       NEW
-└── App.jsx                   UPDATE — add event/conflict state
+│   ├── useEvents.js           NEW
+│   └── useConflicts.js        NEW
+└── App.jsx                    UPDATE — add event/conflict state
 
-.env.example                   UPDATE — add ACLED_API_KEY
+.env.example                    UPDATE — add ACLED_EMAIL, ACLED_PASSWORD
 
 docs/
 └── phases/phase4/
-    └── PHASE4_OVERVIEW.md    (this file)
+    └── PHASE4_OVERVIEW.md     (this file)
 ```
 
 ---
@@ -268,7 +277,7 @@ docs/
 |---|------|-------------|-------------|
 | 1 | Phase 4 docs + API research | Update ARCHITECTURE.md with event/conflict models, verify GDELT/ACLED API details | None |
 | 2 | GDELT backend service | gdelt_service.py — fetch, parse, normalize to Event model | Task 1 |
-| 3 | ACLED backend service | acled_service.py — CSV fetch, parse, normalize to Conflict model | Task 1, ACLED_API_KEY |
+| 3 | ACLED backend service | acled_service.py — OAuth auth, API call, parse, normalize to Conflict model | Task 1, ACLED credentials |
 | 4 | Event + Conflict REST endpoints | /api/events, /api/conflicts routes | Task 2, 3 |
 | 5 | Scheduler integration | Add GDELT (15min) and ACLED (daily) to schedulers | Task 2, 3 |
 | 6 | Events layer on globe | ScatterplotLayer for GDELT points, colored by tone | Task 1 |
@@ -283,7 +292,7 @@ docs/
 ## Verification Checklist
 
 - [ ] GDELT service fetches and parses correctly
-- [ ] ACLED service fetches and parses correctly (with API key)
+- [ ] ACLED service authenticates via OAuth and fetches correctly
 - [ ] /api/events returns GDELT events
 - [ ] /api/conflicts returns ACLED conflicts
 - [ ] Events appear as colored points on globe
@@ -292,7 +301,7 @@ docs/
 - [ ] ConflictInfoPanel shows event_type, fatalities, country, date
 - [ ] Filter controls toggle layers correctly
 - [ ] WebSocket broadcasts event_batch and conflict_batch
-- [ ] Backend runs without ACLED_API_KEY (GDELT-only fallback)
+- [ ] Backend runs without ACLED credentials (GDELT-only fallback)
 - [ ] All existing plane and ship functionality unchanged
 
 ---
