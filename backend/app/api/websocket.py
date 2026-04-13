@@ -95,6 +95,26 @@ async def broadcast_ship_batch(ships: list[dict]) -> None:
     await broadcast(message)
 
 
+async def broadcast_event_batch(events: list[dict]) -> None:
+    """Broadcast all event upserts in a single WebSocket message."""
+    await broadcast({
+        "type": "event_batch",
+        "action": "upsert",
+        "data": events,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+async def broadcast_conflict_batch(conflicts: list[dict]) -> None:
+    """Broadcast all conflict upserts in a single WebSocket message."""
+    await broadcast({
+        "type": "conflict_batch",
+        "action": "upsert",
+        "data": conflicts,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+
+
 async def send_heartbeat(websocket: WebSocket, *, status: str | None = None) -> bool:
     payload = {}
     if status is not None:

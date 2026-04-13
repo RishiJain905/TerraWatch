@@ -4,6 +4,8 @@ import Header from './components/Header/Header'
 import Sidebar from './components/Sidebar/Sidebar'
 import PlaneInfoPanel from './components/PlaneInfoPanel/PlaneInfoPanel'
 import ShipInfoPanel from './components/ShipInfoPanel/ShipInfoPanel'
+import EventInfoPanel from './components/EventInfoPanel/EventInfoPanel'
+import ConflictInfoPanel from './components/ConflictInfoPanel/ConflictInfoPanel'
 import './index.css'
 
 function App() {
@@ -17,6 +19,8 @@ function App() {
   const [selectedEntity, setSelectedEntity] = useState(null)
   const [selectedPlane, setSelectedPlane] = useState(null)
   const [selectedShip, setSelectedShip] = useState(null)
+  const [selectedEvent, setSelectedEvent] = useState(null)
+  const [selectedConflict, setSelectedConflict] = useState(null)
 
   useEffect(() => {
     fetch('/api/metadata')
@@ -37,9 +41,23 @@ function App() {
     if (type === 'plane') {
       setSelectedPlane(entity)
       setSelectedShip(null)
+      setSelectedEvent(null)
+      setSelectedConflict(null)
     } else if (type === 'ship') {
       setSelectedShip(entity)
       setSelectedPlane(null)
+      setSelectedEvent(null)
+      setSelectedConflict(null)
+    } else if (type === 'event') {
+      setSelectedEvent(entity)
+      setSelectedPlane(null)
+      setSelectedShip(null)
+      setSelectedConflict(null)
+    } else if (type === 'conflict') {
+      setSelectedConflict(entity)
+      setSelectedPlane(null)
+      setSelectedShip(null)
+      setSelectedEvent(null)
     }
     console.log(`Selected ${type}:`, entity)
   }, [])
@@ -61,6 +79,18 @@ function App() {
             <ShipInfoPanel
               ship={selectedShip}
               onClose={() => setSelectedShip(null)}
+            />
+          )}
+          {selectedEvent && (
+            <EventInfoPanel
+              event={selectedEvent}
+              onClose={() => setSelectedEvent(null)}
+            />
+          )}
+          {selectedConflict && (
+            <ConflictInfoPanel
+              conflict={selectedConflict}
+              onClose={() => setSelectedConflict(null)}
             />
           )}
         </div>

@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import websocket
-from app.api.routes import events, metadata, planes, ships
+from app.api.routes import conflicts, events, metadata, planes, ships
 from app.core.database import close_db, init_db
 from app.tasks.schedulers import start_schedulers, stop_schedulers
 
@@ -45,6 +45,7 @@ app.include_router(metadata.router)
 app.include_router(planes.router)
 app.include_router(ships.router)
 app.include_router(events.router)
+app.include_router(conflicts.router)
 app.include_router(websocket.router)
 
 

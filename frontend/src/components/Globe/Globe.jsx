@@ -2,7 +2,8 @@ import { useState, useCallback } from 'react'
 import DeckGL from '@deck.gl/react'
 import { _GlobeView as GlobeView } from '@deck.gl/core'
 import { TileLayer } from '@deck.gl/geo-layers'
-import { IconLayer, BitmapLayer } from '@deck.gl/layers'
+import { IconLayer, BitmapLayer, ScatterplotLayer } from '@deck.gl/layers'
+import { HeatmapLayer } from '@deck.gl/aggregation-layers'
 import { getPlaneIcon } from '../../utils/planeIcons'
 import { getShipIcon, SHIP_TYPE_COLORS } from '../../utils/shipIcons'
 import { useWebSocket } from '../../hooks/useWebSocket'
@@ -29,6 +30,8 @@ const SHIP_LEGEND = [
 
 export default function Globe({ layers, onEntityClick }) {
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE)
+  const [events, setEvents] = useState([])
+  const [conflicts, setConflicts] = useState([])
   const { planes, addPlane, addPlanes, removePlane } = usePlanes()
   const { ships, addShip, addShips, removeShip } = useShips()
 
@@ -54,6 +57,10 @@ export default function Globe({ layers, onEntityClick }) {
       if (msg.data && Array.isArray(msg.data)) {
         addShips(msg.data)
       }
+    } else if (msg.type === 'event_batch') {
+      if (msg.data && Array.isArray(msg.data)) { setEvents(msg.data) }
+    } else if (msg.type === 'conflict_batch') {
+      if (msg.data && Array.isArray(msg.data)) { setConflicts(msg.data) }
     }
   }, [addPlane, addPlanes, addShip, addShips, removePlane, removeShip])
 
@@ -114,6 +121,44 @@ export default function Globe({ layers, onEntityClick }) {
     )
   }
 
+  // GDELT Events layer — colored scatter points by tone
+  if (layers && layers.events) {
+    deckLayers.push(
+      new ScatterplotLayer({
+        id: 'events-layer',
+        data: events,
+        pickable: true,
+        getPosition: d => [d.lon, d.lat],
+        getFillColor: d => {
+          const t = Math.max(-10, Math.min(10, d.tone || 0))
+          const r = Math.round(Math.max(0, Math.min(255, 128 - t * 25.5)))
+          const g = Math.round(Math.max(0, Math.min(255, 128 + t * 25.5)))
+          return [r, g, 0, 200]
+        },
+        getRadius: 150000,
+        radiusUnits: 'meters',
+        onClick: (info) => onEntityClick && onEntityClick('event', info.object),
+      })
+    )
+  }
+
+  // ACLED Conflicts layer — heatmap by fatalities
+  if (layers && layers.conflicts) {
+    deckLayers.push(
+      new HeatmapLayer({
+        id: 'conflicts-layer',
+        data: conflicts,
+        pickable: true,
+        getPosition: d => [d.lon, d.lat],
+        getWeight: d => (d.fatalities || 0) + 1,
+        intensity: 1,
+        threshold: 0.05,
+        colorRange: [[255,0,0], [255,80,0], [255,160,0], [255,255,0]],
+        onClick: (info) => onEntityClick && onEntityClick('conflict', info.object),
+      })
+    )
+  }
+
   return (
     <div className="globe-container">
       <DeckGL
@@ -126,6 +171,8 @@ export default function Globe({ layers, onEntityClick }) {
       <div className="globe-info">
         <span>Planes: {planes.length}</span>
         <span>Ships: {ships.length}</span>
+        <span>Events: {events.length}</span>
+        <span>Conflicts: {conflicts.length}</span>
         <span className={`ws-status ${connected ? 'connected' : 'disconnected'}`}>
           {connected ? '\u25CF Live' : '\u25CB Reconnecting'}
         </span>

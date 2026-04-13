@@ -997,8 +997,10 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
     async def test_start_and_stop_schedulers_manage_background_tasks(self):
         plane_started = asyncio.Event()
         ship_started = asyncio.Event()
+        gdelt_started = asyncio.Event()
         plane_cancelled = asyncio.Event()
         ship_cancelled = asyncio.Event()
+        gdelt_cancelled = asyncio.Event()
 
         async def fake_plane_loop(interval_seconds=schedulers.PLANE_REFRESH_INTERVAL_SECONDS):
             plane_started.set()
@@ -1016,27 +1018,41 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
                 ship_cancelled.set()
                 raise
 
+        async def fake_gdelt_loop(interval_seconds=schedulers.GDELT_REFRESH_SECONDS):
+            gdelt_started.set()
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                gdelt_cancelled.set()
+                raise
+
         with patch.object(schedulers.settings, "AISSTREAM_API_KEY", ""), patch(
             "app.tasks.schedulers.plane_fetch_loop", fake_plane_loop
-        ), patch("app.tasks.schedulers.ships_refresh_loop", fake_ship_loop):
+        ), patch("app.tasks.schedulers.ships_refresh_loop", fake_ship_loop), patch(
+            "app.tasks.schedulers.gdelt_refresh_loop", fake_gdelt_loop
+        ):
             tasks = await schedulers.start_schedulers(interval_seconds=0, ship_interval_seconds=0)
             await asyncio.wait_for(plane_started.wait(), timeout=1)
             await asyncio.wait_for(ship_started.wait(), timeout=1)
-            self.assertEqual(len(tasks), 2)
+            await asyncio.wait_for(gdelt_started.wait(), timeout=1)
+            self.assertEqual(len(tasks), 3)
             self.assertTrue(all(not task.done() for task in tasks))
             await schedulers.stop_schedulers()
 
         await asyncio.wait_for(plane_cancelled.wait(), timeout=1)
         await asyncio.wait_for(ship_cancelled.wait(), timeout=1)
+        await asyncio.wait_for(gdelt_cancelled.wait(), timeout=1)
         self.assertEqual(schedulers.get_scheduler_tasks(), [])
 
     async def test_start_schedulers_starts_aisstream_listener_when_api_key_present(self):
         plane_started = asyncio.Event()
         ship_started = asyncio.Event()
         aisstream_started = asyncio.Event()
+        gdelt_started = asyncio.Event()
         plane_cancelled = asyncio.Event()
         ship_cancelled = asyncio.Event()
         aisstream_cancelled = asyncio.Event()
+        gdelt_cancelled = asyncio.Event()
 
         async def fake_plane_loop(interval_seconds=schedulers.PLANE_REFRESH_INTERVAL_SECONDS):
             plane_started.set()
@@ -1062,6 +1078,14 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
                 aisstream_cancelled.set()
                 raise
 
+        async def fake_gdelt_loop(interval_seconds=schedulers.GDELT_REFRESH_SECONDS):
+            gdelt_started.set()
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                gdelt_cancelled.set()
+                raise
+
         fake_service = AsyncMock()
         fake_service.close = AsyncMock()
 
@@ -1069,7 +1093,9 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
             "app.tasks.schedulers.plane_fetch_loop", fake_plane_loop
         ), patch("app.tasks.schedulers.ships_refresh_loop", fake_ship_loop), patch(
             "app.tasks.schedulers.aisstream_listener_loop", fake_aisstream_loop
-        ), patch("app.tasks.schedulers.AisstreamService", return_value=fake_service):
+        ), patch("app.tasks.schedulers.AisstreamService", return_value=fake_service), patch(
+            "app.tasks.schedulers.gdelt_refresh_loop", fake_gdelt_loop
+        ):
             tasks = await schedulers.start_schedulers(
                 interval_seconds=0,
                 ship_interval_seconds=0,
@@ -1078,7 +1104,8 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
             await asyncio.wait_for(plane_started.wait(), timeout=1)
             await asyncio.wait_for(ship_started.wait(), timeout=1)
             await asyncio.wait_for(aisstream_started.wait(), timeout=1)
-            self.assertEqual(len(tasks), 3)
+            await asyncio.wait_for(gdelt_started.wait(), timeout=1)
+            self.assertEqual(len(tasks), 4)
             await schedulers.stop_schedulers()
 
         fake_service.close.assert_awaited()
@@ -1086,18 +1113,22 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.wait_for(plane_cancelled.wait(), timeout=1)
         await asyncio.wait_for(ship_cancelled.wait(), timeout=1)
         await asyncio.wait_for(aisstream_cancelled.wait(), timeout=1)
+        await asyncio.wait_for(gdelt_cancelled.wait(), timeout=1)
         self.assertEqual(schedulers.get_scheduler_tasks(), [])
 
     async def test_start_schedulers_restarts_missing_aisstream_task_without_duplicating_others(self):
         plane_started_count = 0
         ship_started_count = 0
         aisstream_started_count = 0
+        gdelt_started_count = 0
         plane_started = asyncio.Event()
         ship_started = asyncio.Event()
         aisstream_started = asyncio.Event()
+        gdelt_started = asyncio.Event()
         plane_cancelled = asyncio.Event()
         ship_cancelled = asyncio.Event()
         aisstream_cancelled = asyncio.Event()
+        gdelt_cancelled = asyncio.Event()
 
         async def fake_plane_loop(interval_seconds=schedulers.PLANE_REFRESH_INTERVAL_SECONDS):
             nonlocal plane_started_count
@@ -1129,6 +1160,16 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
                 aisstream_cancelled.set()
                 raise
 
+        async def fake_gdelt_loop(interval_seconds=schedulers.GDELT_REFRESH_SECONDS):
+            nonlocal gdelt_started_count
+            gdelt_started_count += 1
+            gdelt_started.set()
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                gdelt_cancelled.set()
+                raise
+
         fake_service = AsyncMock()
         fake_service.close = AsyncMock()
 
@@ -1136,7 +1177,9 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
             "app.tasks.schedulers.plane_fetch_loop", fake_plane_loop
         ), patch("app.tasks.schedulers.ships_refresh_loop", fake_ship_loop), patch(
             "app.tasks.schedulers.aisstream_listener_loop", fake_aisstream_loop
-        ), patch("app.tasks.schedulers.AisstreamService", return_value=fake_service):
+        ), patch("app.tasks.schedulers.AisstreamService", return_value=fake_service), patch(
+            "app.tasks.schedulers.gdelt_refresh_loop", fake_gdelt_loop
+        ):
             tasks = await schedulers.start_schedulers(
                 interval_seconds=0,
                 ship_interval_seconds=0,
@@ -1145,10 +1188,12 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
             await asyncio.wait_for(plane_started.wait(), timeout=1)
             await asyncio.wait_for(ship_started.wait(), timeout=1)
             await asyncio.wait_for(aisstream_started.wait(), timeout=1)
-            self.assertEqual(len(tasks), 3)
+            await asyncio.wait_for(gdelt_started.wait(), timeout=1)
+            self.assertEqual(len(tasks), 4)
             self.assertEqual(plane_started_count, 1)
             self.assertEqual(ship_started_count, 1)
             self.assertEqual(aisstream_started_count, 1)
+            self.assertEqual(gdelt_started_count, 1)
 
             aisstream_started.clear()
             aisstream_task = next(task for task in schedulers.get_scheduler_tasks() if task.get_name() == "aisstream-listener-loop")
@@ -1161,10 +1206,11 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
                 aisstream_batch_interval_seconds=0,
             )
             await asyncio.wait_for(aisstream_started.wait(), timeout=1)
-            self.assertEqual(len(tasks), 3)
+            self.assertEqual(len(tasks), 4)
             self.assertEqual(plane_started_count, 1)
             self.assertEqual(ship_started_count, 1)
             self.assertEqual(aisstream_started_count, 2)
+            self.assertEqual(gdelt_started_count, 1)
 
             await schedulers.stop_schedulers()
 
@@ -1172,6 +1218,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.wait_for(plane_cancelled.wait(), timeout=1)
         await asyncio.wait_for(ship_cancelled.wait(), timeout=1)
         await asyncio.wait_for(aisstream_cancelled.wait(), timeout=1)
+        await asyncio.wait_for(gdelt_cancelled.wait(), timeout=1)
 
 
 class MainLifespanTests(unittest.IsolatedAsyncioTestCase):

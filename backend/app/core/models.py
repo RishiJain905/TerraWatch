@@ -54,6 +54,18 @@ class ConflictZone(BaseModel):
     country: str = ""
 
 
+class Conflict(BaseModel):
+    id: str
+    date: str
+    lat: float
+    lon: float
+    event_type: str = ""
+    fatalities: int = 0
+    country: str = ""
+    region: str = ""
+    timestamp: Optional[str] = None
+
+
 class Metadata(BaseModel):
     status: str
     phase: int = 1
