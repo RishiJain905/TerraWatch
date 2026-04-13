@@ -311,6 +311,8 @@ http://api.gdeltproject.org/api/v2/doc/doc?query=topic&format=json
 
 **Format:** CSV download. No real-time API — download periodically.
 
+**TerraWatch Integration Note:** ACLED requires a paid researcher account for API access. The TerraWatch conflicts layer instead derives its data from GDELT by filtering violent/aggressive event categories (assault, fight, rioting, mass violence, force) into the conflicts heatmap. The ACLED scheduler and data pipeline remain in the codebase for future activation if credentials become available.
+
 ---
 
 ## Satellite Imagery (Future Phases)
@@ -353,7 +355,7 @@ No API key needed for basic usage.
 | AIS/Digitraffic (Finland) | Every 60 seconds | Background scheduler polling (httpx, gzip) |
 | AISStream.io | Every 30 seconds batch emit | Persistent WebSocket listener + batch merge |
 | GDELT | Every hour | Scheduled job (downloading latest export) |
-| ACLED | Once per day | Manual/scheduled CSV refresh |
+| ACLED | Once per day | Manual/scheduled CSV refresh (currently inactive — conflicts sourced from GDELT) |
 
 ---
 
