@@ -309,6 +309,38 @@ No API key needed for basic usage.
 
 ---
 
+## Filterable Fields
+
+### Planes (OpenSky Network)
+| Field | Type | Filter Control |
+|-------|------|----------------|
+| `alt` | int (feet) | Altitude range slider (0–50,000 ft) |
+| `callsign` | string | Text search (partial, case-insensitive) |
+| `speed` | int (knots) | Min speed slider (0–600 kt) |
+
+### Ships (Digitraffic / AISStream.io)
+| Field | Type | Filter Control |
+|-------|------|----------------|
+| `ship_type` | string | Type checkboxes: cargo, tanker, passenger, fishing, other |
+| `speed` | float (knots) | Min speed slider (0–30 kt) |
+
+### Events (GDELT)
+| Field | Type | Filter Control |
+|-------|------|----------------|
+| `category` | string | Category checkboxes: diplomacy, material_help, train, yield, demonstrate, assault, fight, unconventional_mass_gvc, conventional_mass_gvc, force_range, protest, government_debate, rioting, disaster, health, weather |
+| `tone` | float | Tone range dual slider (-10 to +10) |
+| `date` | string (YYYY-MM-DD) | Date range dropdown: 24h, 48h, 7d, all |
+
+### Conflicts (GDELT violent subset)
+| Field | Type | Filter Control |
+|-------|------|----------------|
+| `tone` (as intensity) | float | Min intensity slider: weight = |tone| + 1 (range 0–11) |
+| `date` | string (YYYY-MM-DD) | Date range dropdown: 24h, 48h, 7d, all |
+
+> **Note:** Conflicts are a filtered subset of GDELT events showing only violent/aggressive categories (assault, fight, rioting, unconventional_mass_gvc, conventional_mass_gvc, force_range). Intensity is driven by tone magnitude, not fatalities — GDELT does not provide fatality counts.
+
+---
+
 ## Additional Free Sources (for V2+)
 
 ### OpenStreetMap
