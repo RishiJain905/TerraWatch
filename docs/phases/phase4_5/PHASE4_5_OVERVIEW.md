@@ -82,14 +82,22 @@ Giving users filter controls transforms the experience from "noise" to "signal."
 | `dateRange` | dropdown | all | 24h, 48h, 7 days, all |
 
 **GDELT event categories (from `EVENT_CODE_CATEGORY_MAP`):**
-- `diplomacy` — code 01-06
-- `statement` — code 07
+- `diplomacy` — code 01
+- `material_help` — code 02
+- `train` — code 03
+- `yield` — code 04
+- `demonstrate` — code 05
 - `assault` — code 08
 - `fight` — code 09
-- `mass_gvc` — code 10, 12
-- `force` — code 13
+- `unconventional_mass_gvc` — code 10
+- `conventional_mass_gvc` — code 12
+- `force_range` — code 13
+- `protest` — code 14
+- `government_debate` — code 17
 - `rioting` — code 18
-- `protest` — code 14-16
+- `disaster` — code 20
+- `health` — code 21
+- `weather` — code 22
 
 **Data fields available:** `category`, `tone`, `lat`, `lon`, `date`, `event_text`
 
@@ -100,7 +108,9 @@ Giving users filter controls transforms the experience from "noise" to "signal."
 | `intensityMin` | slider | 0 | Minimum intensity (tone magnitude + 1) |
 | `dateRange` | dropdown | all | 24h, 48h, 7 days, all |
 
-**Data fields available:** `tone`, `lat`, `lon`, `date`, `fatalities`
+**Data fields available:** `tone`, `lat`, `lon`, `date`, `category`
+
+**GDELT violent event categories:** `assault`, `fight`, `rioting`, `unconventional_mass_gvc`, `conventional_mass_gvc`, `force_range`
 
 ---
 

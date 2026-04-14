@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import DeckGL from '@deck.gl/react'
 import { _GlobeView as GlobeView } from '@deck.gl/core'
 import { TileLayer } from '@deck.gl/geo-layers'
@@ -32,22 +32,28 @@ const SHIP_LEGEND = [
 
 export default function Globe({ layers, onEntityClick, onFilterHooksReady }) {
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE)
-  const { events, filteredEvents, addEvent, addEvents, filters: eventsFilters, updateFilter: eventsUpdateFilter } = useEvents()
-  const { conflicts, filteredConflicts, addConflict, addConflicts, filters: conflictsFilters, updateFilter: conflictsUpdateFilter } = useConflicts()
+  const { events, filteredEvents, addEvents, filters: eventsFilters, updateFilter: eventsUpdateFilter } = useEvents()
+  const { conflicts, filteredConflicts, addConflicts, filters: conflictsFilters, updateFilter: conflictsUpdateFilter } = useConflicts()
   const { planes, filteredPlanes, addPlane, addPlanes, removePlane, filters: planesFilters, updateFilter: planesUpdateFilter } = usePlanes()
   const { ships, filteredShips, addShip, addShips, removeShip, filters: shipsFilters, updateFilter: shipsUpdateFilter } = useShips()
 
-  // Expose filter controls to parent via callback
+  // Expose filter controls to parent via a ref-based stable interface.
+  // The ref always holds the latest counts/filters without triggering re-renders
+  // up the tree. We call onFilterHooksReady once on mount with a getter that
+  // reads from the ref, so the parent receives a stable reference.
+  const filterHooksRef = useRef(null)
+  filterHooksRef.current = {
+    planes: { filters: planesFilters, updateFilter: planesUpdateFilter, rawCount: planes.length, filteredCount: filteredPlanes.length },
+    ships: { filters: shipsFilters, updateFilter: shipsUpdateFilter, rawCount: ships.length, filteredCount: filteredShips.length },
+    events: { filters: eventsFilters, updateFilter: eventsUpdateFilter, rawCount: events.length, filteredCount: filteredEvents.length },
+    conflicts: { filters: conflictsFilters, updateFilter: conflictsUpdateFilter, rawCount: conflicts.length, filteredCount: filteredConflicts.length },
+  }
+
   useEffect(() => {
     if (onFilterHooksReady) {
-      onFilterHooksReady({
-        planes: { filters: planesFilters, updateFilter: planesUpdateFilter, rawCount: planes.length, filteredCount: filteredPlanes.length },
-        ships: { filters: shipsFilters, updateFilter: shipsUpdateFilter, rawCount: ships.length, filteredCount: filteredShips.length },
-        events: { filters: eventsFilters, updateFilter: eventsUpdateFilter, rawCount: events.length, filteredCount: filteredEvents.length },
-        conflicts: { filters: conflictsFilters, updateFilter: conflictsUpdateFilter, rawCount: conflicts.length, filteredCount: filteredConflicts.length },
-      })
+      onFilterHooksReady(() => filterHooksRef.current)
     }
-  }, [onFilterHooksReady, planesFilters, shipsFilters, eventsFilters, conflictsFilters, planes.length, filteredPlanes.length, ships.length, filteredShips.length, events.length, filteredEvents.length, conflicts.length, filteredConflicts.length])
+  }, [onFilterHooksReady])
 
   // Handle WebSocket messages — planes + ships
   const handleWSMessage = useCallback((msg) => {
@@ -76,7 +82,7 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady }) {
     } else if (msg.type === 'conflict_batch') {
       if (msg.data && Array.isArray(msg.data)) { addConflicts(msg.data) }
     }
-  }, [addPlane, addPlanes, addShip, addShips, removePlane, removeShip, addEvent, addEvents, addConflict, addConflicts])
+  }, [addPlane, addPlanes, addShip, addShips, removePlane, removeShip, addEvents, addConflicts])
 
   const { connected } = useWebSocket(handleWSMessage)
 

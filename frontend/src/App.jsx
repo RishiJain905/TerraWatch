@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import Globe from './components/Globe/Globe'
 import Header from './components/Header/Header'
 import Sidebar from './components/Sidebar/Sidebar'
@@ -17,9 +17,9 @@ function App() {
     conflicts: false,
   })
   const [selectedEntity, setSelectedEntity] = useState(null)
-  const [filterHooks, setFilterHooks] = useState(null)
+  const [filterHooksGetter, setFilterHooksGetter] = useState(null)
 
-  const handleFilterHooksReady = useCallback((hooks) => setFilterHooks(hooks), [])
+  const handleFilterHooksReady = useCallback((getter) => setFilterHooksGetter(getter), [])
 
   const [selectedPlane, setSelectedPlane] = useState(null)
   const [selectedShip, setSelectedShip] = useState(null)
@@ -70,7 +70,7 @@ function App() {
     <div className="app">
       <Header backendStatus={backendStatus} />
       <div className="main-content">
-        <Sidebar layers={layers} onToggleLayer={toggleLayer} filterHooks={filterHooks} />
+        <Sidebar layers={layers} onToggleLayer={toggleLayer} filterHooks={filterHooksGetter ? filterHooksGetter() : null} />
         <div className="globe-wrapper">
           <Globe layers={layers} onEntityClick={handleEntityClick} onFilterHooksReady={handleFilterHooksReady} />
           {selectedPlane && (

@@ -203,8 +203,8 @@ Each data hook (`usePlanes`, `useShips`, `useEvents`, `useConflicts`) maintains:
 
 ```
 usePlanes() ──► filterPlanes() ──► Globe (IconLayer)
-useShips() ───► filterShips() ──── Globe (IconLayer)
-useEvents() ──► filterEvents() ──── Globe (ScatterplotLayer)
+useShips() ───► filterShips() ────► Globe (IconLayer)
+useEvents() ──► filterEvents() ────► Globe (ScatterplotLayer)
 useConflicts() ─► filterConflicts() ──► Globe (HeatmapLayer)
 ```
 

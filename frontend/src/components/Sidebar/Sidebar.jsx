@@ -246,7 +246,19 @@ function LayerItem({ layer, isActive, onToggleLayer, isExpanded, onToggleExpand,
 
   return (
     <div className={`layer-item ${isActive ? 'active' : ''}`}>
-      <div className="layer-item-header">
+      <div
+        className="layer-item-header"
+        role="button"
+        tabIndex={0}
+        aria-expanded={isExpanded}
+        onClick={() => onToggleExpand(layer.key)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onToggleExpand(layer.key)
+          }
+        }}
+      >
         <span className="layer-icon">{layer.icon}</span>
         <span className="layer-label">
           {layer.label}
@@ -258,13 +270,16 @@ function LayerItem({ layer, isActive, onToggleLayer, isExpanded, onToggleExpand,
             </span>
           )}
         </span>
-        <div
+        <button
+          type="button"
           className="layer-toggle"
           style={{ '--toggle-color': layer.color }}
+          aria-pressed={isActive}
+          aria-label={`${layer.label} layer`}
           onClick={(e) => { e.stopPropagation(); onToggleLayer(layer.key) }}
         >
           <div className="toggle-knob" />
-        </div>
+        </button>
         <button
           className="expand-btn"
           onClick={(e) => { e.stopPropagation(); onToggleExpand(layer.key) }}

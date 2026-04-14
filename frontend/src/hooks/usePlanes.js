@@ -33,7 +33,23 @@ export function usePlanes() {
   }, [planes, filters])
 
   const updateFilter = useCallback((key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }))
+    setFilters(prev => {
+      if (key === 'altitudeMin') {
+        return {
+          ...prev,
+          altitudeMin: value,
+          altitudeMax: Math.max(prev.altitudeMax, value),
+        }
+      }
+      if (key === 'altitudeMax') {
+        return {
+          ...prev,
+          altitudeMin: Math.min(prev.altitudeMin, value),
+          altitudeMax: value,
+        }
+      }
+      return { ...prev, [key]: value }
+    })
   }, [])
 
   const fetchPlanes = useCallback(async () => {

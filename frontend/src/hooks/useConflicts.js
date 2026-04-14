@@ -58,7 +58,9 @@ export function useConflicts() {
 
       // Date range filter
       if (filters.dateRange !== 'all') {
-        const conflictDate = new Date(conflict.date).getTime()
+        if (!conflict.date) return false
+        const conflictDate = new Date(conflict.date + 'T00:00:00Z').getTime()
+        if (Number.isNaN(conflictDate)) return false
         let cutoff
         switch (filters.dateRange) {
           case '24h':

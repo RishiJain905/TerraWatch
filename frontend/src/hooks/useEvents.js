@@ -82,7 +82,9 @@ export function useEvents() {
 
       // Date range filter
       if (filters.dateRange !== 'all') {
-        const eventDate = new Date(event.date).getTime()
+        if (!event.date) return false
+        const eventDate = new Date(event.date + 'T00:00:00Z').getTime()
+        if (Number.isNaN(eventDate)) return false
         let cutoff
         switch (filters.dateRange) {
           case '24h':
@@ -107,7 +109,23 @@ export function useEvents() {
   }, [events, filters])
 
   const updateFilter = useCallback((key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }))
+    setFilters(prev => {
+      const clampTone = (tone) => Math.min(10, Math.max(-10, tone))
+
+      if (key === 'toneMin') {
+        const nextToneMin = clampTone(Number(value))
+        if (!Number.isFinite(nextToneMin)) return prev
+        return { ...prev, toneMin: Math.min(nextToneMin, prev.toneMax) }
+      }
+
+      if (key === 'toneMax') {
+        const nextToneMax = clampTone(Number(value))
+        if (!Number.isFinite(nextToneMax)) return prev
+        return { ...prev, toneMax: Math.max(nextToneMax, prev.toneMin) }
+      }
+
+      return { ...prev, [key]: value }
+    })
   }, [])
 
   useEffect(() => {
