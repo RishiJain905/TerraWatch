@@ -1,11 +1,23 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 
 const initialShips = []
+
+const DEFAULT_FILTERS = { types: ['cargo', 'tanker', 'passenger', 'fishing', 'other'], speedMin: 0 }
 
 export function useShips() {
   const [ships, setShips] = useState(initialShips)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [filters, setFilters] = useState(DEFAULT_FILTERS)
+
+  const filteredShips = useMemo(() => {
+    return ships.filter(ship => {
+      const shipType = ship.ship_type || 'other'
+      if (!filters.types.includes(shipType)) return false
+      if (ship.speed != null && ship.speed < filters.speedMin) return false
+      return true
+    })
+  }, [ships, filters])
 
   const fetchShips = useCallback(async () => {
     try {
@@ -55,9 +67,13 @@ export function useShips() {
     setShips(prev => prev.filter(s => s.id !== shipId))
   }, [])
 
+  const updateFilter = useCallback((key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }))
+  }, [])
+
   useEffect(() => {
     fetchShips()
   }, [fetchShips])
 
-  return { ships, loading, error, fetchShips, addShip, addShips, removeShip }
+  return { ships, filteredShips, filters, updateFilter, loading, error, fetchShips, addShip, addShips, removeShip }
 }

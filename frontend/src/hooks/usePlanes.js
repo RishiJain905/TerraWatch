@@ -1,11 +1,56 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 
 const initialPlanes = []
+
+const DEFAULT_FILTERS = {
+  altitudeMin: 0,
+  altitudeMax: 50000,
+  callsign: '',
+  speedMin: 0,
+}
 
 export function usePlanes() {
   const [planes, setPlanes] = useState(initialPlanes)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [filters, setFilters] = useState(DEFAULT_FILTERS)
+
+  const filteredPlanes = useMemo(() => {
+    return planes.filter(plane => {
+      const alt = plane.alt ?? 0
+
+      if (alt < filters.altitudeMin) return false
+      if (alt > filters.altitudeMax) return false
+      if ((plane.speed ?? 0) < filters.speedMin) return false
+
+      if (filters.callsign.trim() !== '') {
+        const term = filters.callsign.trim().toLowerCase()
+        if (!(plane.callsign ?? '').trim().toLowerCase().includes(term)) return false
+      }
+
+      return true
+    })
+  }, [planes, filters])
+
+  const updateFilter = useCallback((key, value) => {
+    setFilters(prev => {
+      if (key === 'altitudeMin') {
+        return {
+          ...prev,
+          altitudeMin: value,
+          altitudeMax: Math.max(prev.altitudeMax, value),
+        }
+      }
+      if (key === 'altitudeMax') {
+        return {
+          ...prev,
+          altitudeMin: Math.min(prev.altitudeMin, value),
+          altitudeMax: value,
+        }
+      }
+      return { ...prev, [key]: value }
+    })
+  }, [])
 
   const fetchPlanes = useCallback(async () => {
     try {
@@ -48,5 +93,5 @@ export function usePlanes() {
     fetchPlanes()
   }, [fetchPlanes])
 
-  return { planes, loading, error, fetchPlanes, addPlane, addPlanes, removePlane }
+  return { planes, filteredPlanes, filters, updateFilter, loading, error, fetchPlanes, addPlane, addPlanes, removePlane }
 }

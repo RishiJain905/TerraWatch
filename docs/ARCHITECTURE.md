@@ -186,3 +186,32 @@ Conflict events are GDELT entries with violent/aggressive categories (assault, f
 | **GPT 5.4** | Backend — FastAPI app, data services, schedulers, database models, API routes |
 | **GLM 5.1** | Frontend — React app, deck.gl globe, all UI components, hooks, visualization layers |
 | **MiniMax M2.7** | Coordinator — Architecture, Docker setup, WebSocket wiring, API integration, docs |
+
+---
+
+## Filtering Architecture
+
+Filters are **frontend-only** — all data comes through existing endpoints and WebSocket channels, with filtering applied in the React hooks before data reaches the Globe.
+
+### Filter Pattern
+
+Each data hook (`usePlanes`, `useShips`, `useEvents`, `useConflicts`) maintains:
+- **Raw data** — all records received from the backend, never mutated
+- **Filter state** — user-configured filter values (altitude range, categories, etc.)
+- **Filtered data** — derived via `useMemo`, raw data with filters applied
+- **Update function** — `updateFilter(key, value)` to update a single filter
+
+```
+usePlanes() ──► filterPlanes() ──► Globe (IconLayer)
+useShips() ───► filterShips() ────► Globe (IconLayer)
+useEvents() ──► filterEvents() ────► Globe (ScatterplotLayer)
+useConflicts() ─► filterConflicts() ──► Globe (HeatmapLayer)
+```
+
+### Filtered Data Exposure
+
+Globe.jsx uses filtered data for rendering. Raw data counts are shown in the globe info bar so users can see how many items are hidden by filters.
+
+### Filter UI
+
+Filter controls live in collapsible panels in the Sidebar, one per layer. Filters update in real-time — no "Apply" button. State persists across WebSocket reconnects.

@@ -17,6 +17,10 @@ function App() {
     conflicts: false,
   })
   const [selectedEntity, setSelectedEntity] = useState(null)
+  const [filterHooksGetter, setFilterHooksGetter] = useState(null)
+
+  const handleFilterHooksReady = useCallback((getter) => setFilterHooksGetter(getter), [])
+
   const [selectedPlane, setSelectedPlane] = useState(null)
   const [selectedShip, setSelectedShip] = useState(null)
   const [selectedEvent, setSelectedEvent] = useState(null)
@@ -66,9 +70,9 @@ function App() {
     <div className="app">
       <Header backendStatus={backendStatus} />
       <div className="main-content">
-        <Sidebar layers={layers} onToggleLayer={toggleLayer} />
+        <Sidebar layers={layers} onToggleLayer={toggleLayer} filterHooks={filterHooksGetter ? filterHooksGetter() : null} />
         <div className="globe-wrapper">
-          <Globe layers={layers} onEntityClick={handleEntityClick} />
+          <Globe layers={layers} onEntityClick={handleEntityClick} onFilterHooksReady={handleFilterHooksReady} />
           {selectedPlane && (
             <PlaneInfoPanel
               plane={selectedPlane}

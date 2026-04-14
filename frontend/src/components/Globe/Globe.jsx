@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import DeckGL from '@deck.gl/react'
 import { _GlobeView as GlobeView } from '@deck.gl/core'
 import { TileLayer } from '@deck.gl/geo-layers'
@@ -9,6 +9,8 @@ import { getShipIcon, SHIP_TYPE_COLORS } from '../../utils/shipIcons'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import { usePlanes } from '../../hooks/usePlanes'
 import { useShips } from '../../hooks/useShips'
+import { useEvents } from '../../hooks/useEvents'
+import { useConflicts } from '../../hooks/useConflicts'
 import './Globe.css'
 
 const INITIAL_VIEW_STATE = {
@@ -28,12 +30,30 @@ const SHIP_LEGEND = [
   { type: 'other',     label: 'Other',     color: SHIP_TYPE_COLORS.other.hex },
 ]
 
-export default function Globe({ layers, onEntityClick }) {
+export default function Globe({ layers, onEntityClick, onFilterHooksReady }) {
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE)
-  const [events, setEvents] = useState([])
-  const [conflicts, setConflicts] = useState([])
-  const { planes, addPlane, addPlanes, removePlane } = usePlanes()
-  const { ships, addShip, addShips, removeShip } = useShips()
+  const { events, filteredEvents, addEvents, filters: eventsFilters, updateFilter: eventsUpdateFilter } = useEvents()
+  const { conflicts, filteredConflicts, addConflicts, filters: conflictsFilters, updateFilter: conflictsUpdateFilter } = useConflicts()
+  const { planes, filteredPlanes, addPlane, addPlanes, removePlane, filters: planesFilters, updateFilter: planesUpdateFilter } = usePlanes()
+  const { ships, filteredShips, addShip, addShips, removeShip, filters: shipsFilters, updateFilter: shipsUpdateFilter } = useShips()
+
+  // Expose filter controls to parent via a ref-based stable interface.
+  // The ref always holds the latest counts/filters without triggering re-renders
+  // up the tree. We call onFilterHooksReady once on mount with a getter that
+  // reads from the ref, so the parent receives a stable reference.
+  const filterHooksRef = useRef(null)
+  filterHooksRef.current = {
+    planes: { filters: planesFilters, updateFilter: planesUpdateFilter, rawCount: planes.length, filteredCount: filteredPlanes.length },
+    ships: { filters: shipsFilters, updateFilter: shipsUpdateFilter, rawCount: ships.length, filteredCount: filteredShips.length },
+    events: { filters: eventsFilters, updateFilter: eventsUpdateFilter, rawCount: events.length, filteredCount: filteredEvents.length },
+    conflicts: { filters: conflictsFilters, updateFilter: conflictsUpdateFilter, rawCount: conflicts.length, filteredCount: filteredConflicts.length },
+  }
+
+  useEffect(() => {
+    if (onFilterHooksReady) {
+      onFilterHooksReady(() => filterHooksRef.current)
+    }
+  }, [onFilterHooksReady])
 
   // Handle WebSocket messages — planes + ships
   const handleWSMessage = useCallback((msg) => {
@@ -58,25 +78,13 @@ export default function Globe({ layers, onEntityClick }) {
         addShips(msg.data)
       }
     } else if (msg.type === 'event_batch') {
-      if (msg.data && Array.isArray(msg.data)) { setEvents(msg.data) }
+      if (msg.data && Array.isArray(msg.data)) { addEvents(msg.data) }
     } else if (msg.type === 'conflict_batch') {
-      if (msg.data && Array.isArray(msg.data)) { setConflicts(msg.data) }
+      if (msg.data && Array.isArray(msg.data)) { addConflicts(msg.data) }
     }
-  }, [addPlane, addPlanes, addShip, addShips, removePlane, removeShip])
+  }, [addPlane, addPlanes, addShip, addShips, removePlane, removeShip, addEvents, addConflicts])
 
   const { connected } = useWebSocket(handleWSMessage)
-
-  // Initial REST fetch for events and conflicts on mount
-  useEffect(() => {
-    fetch('/api/events')
-      .then(r => r.ok ? r.json() : [])
-      .then(data => { if (Array.isArray(data) && data.length > 0) setEvents(data) })
-      .catch(() => {})
-    fetch('/api/conflicts')
-      .then(r => r.ok ? r.json() : [])
-      .then(data => { if (Array.isArray(data) && data.length > 0) setConflicts(data) })
-      .catch(() => {})
-  }, [])
 
   // Tile layer for dark basemap rendered on the globe
   const tileLayer = new TileLayer({
@@ -104,7 +112,7 @@ export default function Globe({ layers, onEntityClick }) {
     deckLayers.push(
       new IconLayer({
         id: 'planes-layer',
-        data: planes,
+        data: filteredPlanes,
         pickable: true,
         getIcon: d => getPlaneIcon(d.alt),
         getPosition: d => [d.lon, d.lat],
@@ -121,7 +129,7 @@ export default function Globe({ layers, onEntityClick }) {
     deckLayers.push(
       new IconLayer({
         id: 'ships-layer',
-        data: ships,
+        data: filteredShips,
         pickable: true,
         getIcon: d => getShipIcon(d.ship_type),
         getPosition: d => [d.lon, d.lat],
@@ -138,7 +146,7 @@ export default function Globe({ layers, onEntityClick }) {
     deckLayers.push(
       new ScatterplotLayer({
         id: 'events-layer',
-        data: events,
+        data: filteredEvents,
         pickable: true,
         getPosition: d => [d.lon, d.lat],
         getFillColor: d => {
@@ -159,7 +167,7 @@ export default function Globe({ layers, onEntityClick }) {
     deckLayers.push(
       new HeatmapLayer({
         id: 'conflicts-layer',
-        data: conflicts,
+        data: filteredConflicts,
         pickable: true,
         getPosition: d => [d.lon, d.lat],
         getWeight: d => Math.abs(d.tone || 0) + 1,
@@ -181,10 +189,10 @@ export default function Globe({ layers, onEntityClick }) {
         layers={deckLayers}
       />
       <div className="globe-info">
-        <span>Planes: {planes.length}</span>
-        <span>Ships: {ships.length}</span>
-        <span>Events: {events.length}</span>
-        <span>Conflicts: {conflicts.length}</span>
+        <span>Planes: {filteredPlanes.length === planes.length ? planes.length : `${filteredPlanes.length} / ${planes.length}`}</span>
+        <span>Ships: {filteredShips.length === ships.length ? ships.length : `${filteredShips.length} / ${ships.length}`}</span>
+        <span>Events: {filteredEvents.length === events.length ? events.length : `${filteredEvents.length} / ${events.length}`}</span>
+        <span>Conflicts: {filteredConflicts.length === conflicts.length ? conflicts.length : `${filteredConflicts.length} / ${conflicts.length}`}</span>
         <span className={`ws-status ${connected ? 'connected' : 'disconnected'}`}>
           {connected ? '\u25CF Live' : '\u25CB Reconnecting'}
         </span>
