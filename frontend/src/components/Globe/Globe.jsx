@@ -41,13 +41,13 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady }) {
   useEffect(() => {
     if (onFilterHooksReady) {
       onFilterHooksReady({
-        planes: { filters: planesFilters, updateFilter: planesUpdateFilter },
-        ships: { filters: shipsFilters, updateFilter: shipsUpdateFilter },
-        events: { filters: eventsFilters, updateFilter: eventsUpdateFilter },
-        conflicts: { filters: conflictsFilters, updateFilter: conflictsUpdateFilter },
+        planes: { filters: planesFilters, updateFilter: planesUpdateFilter, rawCount: planes.length, filteredCount: filteredPlanes.length },
+        ships: { filters: shipsFilters, updateFilter: shipsUpdateFilter, rawCount: ships.length, filteredCount: filteredShips.length },
+        events: { filters: eventsFilters, updateFilter: eventsUpdateFilter, rawCount: events.length, filteredCount: filteredEvents.length },
+        conflicts: { filters: conflictsFilters, updateFilter: conflictsUpdateFilter, rawCount: conflicts.length, filteredCount: filteredConflicts.length },
       })
     }
-  }, [onFilterHooksReady, planesFilters, shipsFilters, eventsFilters, conflictsFilters])
+  }, [onFilterHooksReady, planesFilters, shipsFilters, eventsFilters, conflictsFilters, planes.length, filteredPlanes.length, ships.length, filteredShips.length, events.length, filteredEvents.length, conflicts.length, filteredConflicts.length])
 
   // Handle WebSocket messages — planes + ships
   const handleWSMessage = useCallback((msg) => {
@@ -183,10 +183,10 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady }) {
         layers={deckLayers}
       />
       <div className="globe-info">
-        <span>Planes: {planes.length}</span>
-        <span>Ships: {ships.length}</span>
-        <span>Events: {events.length}</span>
-        <span>Conflicts: {conflicts.length}</span>
+        <span>Planes: {filteredPlanes.length === planes.length ? planes.length : `${filteredPlanes.length} / ${planes.length}`}</span>
+        <span>Ships: {filteredShips.length === ships.length ? ships.length : `${filteredShips.length} / ${ships.length}`}</span>
+        <span>Events: {filteredEvents.length === events.length ? events.length : `${filteredEvents.length} / ${events.length}`}</span>
+        <span>Conflicts: {filteredConflicts.length === conflicts.length ? conflicts.length : `${filteredConflicts.length} / ${conflicts.length}`}</span>
         <span className={`ws-status ${connected ? 'connected' : 'disconnected'}`}>
           {connected ? '\u25CF Live' : '\u25CB Reconnecting'}
         </span>

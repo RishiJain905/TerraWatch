@@ -213,3 +213,9 @@
   width: 100%;
   accent-color: #4a90d9;
 }
+
+.layer-count {
+  font-size: 11px;
+  opacity: 0.5;
+  margin-left: 6px;
+}

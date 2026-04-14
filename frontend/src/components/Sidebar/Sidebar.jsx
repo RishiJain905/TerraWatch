@@ -248,7 +248,16 @@ function LayerItem({ layer, isActive, onToggleLayer, isExpanded, onToggleExpand,
     <div className={`layer-item ${isActive ? 'active' : ''}`}>
       <div className="layer-item-header">
         <span className="layer-icon">{layer.icon}</span>
-        <span className="layer-label">{layer.label}</span>
+        <span className="layer-label">
+          {layer.label}
+          {filterHook?.rawCount != null && (
+            <span className="layer-count">
+              {filterHook.filteredCount === filterHook.rawCount
+                ? filterHook.rawCount.toLocaleString()
+                : `${filterHook.filteredCount.toLocaleString()} / ${filterHook.rawCount.toLocaleString()}`}
+            </span>
+          )}
+        </span>
         <div
           className="layer-toggle"
           style={{ '--toggle-color': layer.color }}
