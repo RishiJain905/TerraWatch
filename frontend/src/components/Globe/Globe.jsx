@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import DeckGL from '@deck.gl/react'
 import { _GlobeView as GlobeView } from '@deck.gl/core'
 import { TileLayer } from '@deck.gl/geo-layers'
@@ -30,12 +30,24 @@ const SHIP_LEGEND = [
   { type: 'other',     label: 'Other',     color: SHIP_TYPE_COLORS.other.hex },
 ]
 
-export default function Globe({ layers, onEntityClick }) {
+export default function Globe({ layers, onEntityClick, onFilterHooksReady }) {
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE)
-  const { events, filteredEvents, addEvent, addEvents } = useEvents()
-  const { conflicts, filteredConflicts, addConflict, addConflicts } = useConflicts()
-  const { planes, filteredPlanes, addPlane, addPlanes, removePlane } = usePlanes()
-  const { ships, filteredShips, addShip, addShips, removeShip } = useShips()
+  const { events, filteredEvents, addEvent, addEvents, filters: eventsFilters, updateFilter: eventsUpdateFilter } = useEvents()
+  const { conflicts, filteredConflicts, addConflict, addConflicts, filters: conflictsFilters, updateFilter: conflictsUpdateFilter } = useConflicts()
+  const { planes, filteredPlanes, addPlane, addPlanes, removePlane, filters: planesFilters, updateFilter: planesUpdateFilter } = usePlanes()
+  const { ships, filteredShips, addShip, addShips, removeShip, filters: shipsFilters, updateFilter: shipsUpdateFilter } = useShips()
+
+  // Expose filter controls to parent via callback
+  useEffect(() => {
+    if (onFilterHooksReady) {
+      onFilterHooksReady({
+        planes: { filters: planesFilters, updateFilter: planesUpdateFilter },
+        ships: { filters: shipsFilters, updateFilter: shipsUpdateFilter },
+        events: { filters: eventsFilters, updateFilter: eventsUpdateFilter },
+        conflicts: { filters: conflictsFilters, updateFilter: conflictsUpdateFilter },
+      })
+    }
+  }, [onFilterHooksReady, planesFilters, shipsFilters, eventsFilters, conflictsFilters])
 
   // Handle WebSocket messages — planes + ships
   const handleWSMessage = useCallback((msg) => {
