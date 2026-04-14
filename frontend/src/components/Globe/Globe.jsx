@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import DeckGL from '@deck.gl/react'
 import { _GlobeView as GlobeView } from '@deck.gl/core'
 import { TileLayer } from '@deck.gl/geo-layers'
@@ -9,6 +9,8 @@ import { getShipIcon, SHIP_TYPE_COLORS } from '../../utils/shipIcons'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import { usePlanes } from '../../hooks/usePlanes'
 import { useShips } from '../../hooks/useShips'
+import { useEvents } from '../../hooks/useEvents'
+import { useConflicts } from '../../hooks/useConflicts'
 import './Globe.css'
 
 const INITIAL_VIEW_STATE = {
@@ -30,10 +32,10 @@ const SHIP_LEGEND = [
 
 export default function Globe({ layers, onEntityClick }) {
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE)
-  const [events, setEvents] = useState([])
-  const [conflicts, setConflicts] = useState([])
-  const { planes, addPlane, addPlanes, removePlane } = usePlanes()
-  const { ships, addShip, addShips, removeShip } = useShips()
+  const { events, filteredEvents, addEvent, addEvents } = useEvents()
+  const { conflicts, filteredConflicts, addConflict, addConflicts } = useConflicts()
+  const { planes, filteredPlanes, addPlane, addPlanes, removePlane } = usePlanes()
+  const { ships, filteredShips, addShip, addShips, removeShip } = useShips()
 
   // Handle WebSocket messages — planes + ships
   const handleWSMessage = useCallback((msg) => {
@@ -58,25 +60,13 @@ export default function Globe({ layers, onEntityClick }) {
         addShips(msg.data)
       }
     } else if (msg.type === 'event_batch') {
-      if (msg.data && Array.isArray(msg.data)) { setEvents(msg.data) }
+      if (msg.data && Array.isArray(msg.data)) { addEvents(msg.data) }
     } else if (msg.type === 'conflict_batch') {
-      if (msg.data && Array.isArray(msg.data)) { setConflicts(msg.data) }
+      if (msg.data && Array.isArray(msg.data)) { addConflicts(msg.data) }
     }
-  }, [addPlane, addPlanes, addShip, addShips, removePlane, removeShip])
+  }, [addPlane, addPlanes, addShip, addShips, removePlane, removeShip, addEvent, addEvents, addConflict, addConflicts])
 
   const { connected } = useWebSocket(handleWSMessage)
-
-  // Initial REST fetch for events and conflicts on mount
-  useEffect(() => {
-    fetch('/api/events')
-      .then(r => r.ok ? r.json() : [])
-      .then(data => { if (Array.isArray(data) && data.length > 0) setEvents(data) })
-      .catch(() => {})
-    fetch('/api/conflicts')
-      .then(r => r.ok ? r.json() : [])
-      .then(data => { if (Array.isArray(data) && data.length > 0) setConflicts(data) })
-      .catch(() => {})
-  }, [])
 
   // Tile layer for dark basemap rendered on the globe
   const tileLayer = new TileLayer({
@@ -104,7 +94,7 @@ export default function Globe({ layers, onEntityClick }) {
     deckLayers.push(
       new IconLayer({
         id: 'planes-layer',
-        data: planes,
+        data: filteredPlanes,
         pickable: true,
         getIcon: d => getPlaneIcon(d.alt),
         getPosition: d => [d.lon, d.lat],
@@ -121,7 +111,7 @@ export default function Globe({ layers, onEntityClick }) {
     deckLayers.push(
       new IconLayer({
         id: 'ships-layer',
-        data: ships,
+        data: filteredShips,
         pickable: true,
         getIcon: d => getShipIcon(d.ship_type),
         getPosition: d => [d.lon, d.lat],
@@ -138,7 +128,7 @@ export default function Globe({ layers, onEntityClick }) {
     deckLayers.push(
       new ScatterplotLayer({
         id: 'events-layer',
-        data: events,
+        data: filteredEvents,
         pickable: true,
         getPosition: d => [d.lon, d.lat],
         getFillColor: d => {
@@ -159,7 +149,7 @@ export default function Globe({ layers, onEntityClick }) {
     deckLayers.push(
       new HeatmapLayer({
         id: 'conflicts-layer',
-        data: conflicts,
+        data: filteredConflicts,
         pickable: true,
         getPosition: d => [d.lon, d.lat],
         getWeight: d => Math.abs(d.tone || 0) + 1,
