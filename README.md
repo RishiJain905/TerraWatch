@@ -2,7 +2,7 @@
 
 > Real-time GEOINT platform — track planes, ships, and world events on a 3D globe
 
-![Phase](https://img.shields.io/badge/Phase-3_Complete-blue)
+![Phase](https://img.shields.io/badge/Phase-4.5_Complete-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ## What Problem Does TerraWatch Solve?
