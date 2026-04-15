@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import DeckGL from '@deck.gl/react'
 import { _GlobeView as GlobeView } from '@deck.gl/core'
 import { TileLayer } from '@deck.gl/geo-layers'
-import { IconLayer, BitmapLayer, ScatterplotLayer } from '@deck.gl/layers'
+import { IconLayer, BitmapLayer, ScatterplotLayer, SolidPolygonLayer } from '@deck.gl/layers'
 import { HeatmapLayer } from '@deck.gl/aggregation-layers'
 import { getPlaneIcon } from '../../utils/planeIcons'
 import { getShipIcon, SHIP_TYPE_COLORS } from '../../utils/shipIcons'
@@ -12,6 +12,8 @@ import { useShips } from '../../hooks/useShips'
 import { useEvents } from '../../hooks/useEvents'
 import { useConflicts } from '../../hooks/useConflicts'
 import './Globe.css'
+import { getTerminatorPolygon } from '../../utils/terminator'
+import { generateStarfield } from '../../utils/starfield'
 
 const INITIAL_VIEW_STATE = {
   longitude: 0,
@@ -20,6 +22,9 @@ const INITIAL_VIEW_STATE = {
   pitch: 0,
   bearing: 0,
 }
+
+// Generate starfield once — stable across re-renders (seeded PRNG)
+const STARFIELD_DATA = generateStarfield({ count: 800, radius: 20000000, seed: 42 })
 
 // Ship type entries for the legend
 const SHIP_LEGEND = [
@@ -54,6 +59,16 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady }) {
       onFilterHooksReady(() => filterHooksRef.current)
     }
   }, [onFilterHooksReady])
+
+  // Terminator polygon — recalculated every 60 seconds (terminator moves ~15°/hour)
+  const [terminatorPolygon, setTerminatorPolygon] = useState(() => getTerminatorPolygon())
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTerminatorPolygon(getTerminatorPolygon())
+    }, 60000) // every minute
+    return () => clearInterval(interval)
+  }, [])
 
   // Handle WebSocket messages — planes + ships
   const handleWSMessage = useCallback((msg) => {
@@ -104,8 +119,33 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady }) {
     },
   })
 
+  // Starfield layer — scatter points on a large-radius sphere behind the globe
+  const starfieldLayer = new ScatterplotLayer({
+    id: 'starfield-layer',
+    data: STARFIELD_DATA,
+    pickable: false,
+    getPosition: d => d.position,
+    getFillColor: d => d.color,
+    getRadius: d => d.radius,
+    radiusUnits: 'meters',
+    opacity: 0.9,
+    stroked: false,
+  })
+
+  // Terminator layer — semi-transparent dark fill on the night side
+  const terminatorLayer = new SolidPolygonLayer({
+    id: 'terminator-layer',
+    data: [{ polygon: terminatorPolygon }],
+    getPolygon: d => d.polygon,
+    getFillColor: [0, 0, 30, 128],   // dark blue, 50% transparent
+    getLineColor: [50, 80, 160, 100], // subtle blue terminator line
+    lineWidthMinPixels: 1,
+    stroked: true,
+    pickable: false,
+  })
+
   // Build deck.gl layers
-  const deckLayers = [tileLayer]
+  const deckLayers = [starfieldLayer, terminatorLayer, tileLayer]
 
   // Plane layer — directional icons
   if (layers && layers.planes) {
