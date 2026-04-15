@@ -104,3 +104,25 @@
   margin-right: 8px;
   display: inline-block;
 }
+
+/* Atmosphere glow — soft blue rim light at globe edges */
+.globe-container::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 52%;
+  height: 88%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    transparent 42%,
+    rgba(100, 150, 255, 0.03) 48%,
+    rgba(100, 180, 255, 0.06) 52%,
+    rgba(100, 150, 255, 0.03) 56%,
+    transparent 62%
+  );
+  pointer-events: none;
+  z-index: 5;
+}
