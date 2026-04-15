@@ -128,7 +128,7 @@ function findTerminatorLongitude(latDeg, decRad, subSolarLonDeg) {
  * @param {Date} date — UTC date for solar position
  * @returns {Array<[number, number]>} array of [longitude, latitude] pairs
  */
-export function getTerminatorPolygon(date) {
+export function getTerminatorPolygon(date = new Date()) {
   const decRad = getSolarDeclination(date)
   const subSolarLon = getSubsolarLongitude(date)
 
@@ -164,7 +164,7 @@ export function getTerminatorPolygon(date) {
  * @param {Date}   date   — UTC date for solar position
  * @returns {boolean}
  */
-export function isNightSide(lonDeg, latDeg, date) {
+export function isNightSide(lonDeg, latDeg, date = new Date()) {
   const decRad = getSolarDeclination(date)
   const subSolarLon = getSubsolarLongitude(date)
   return isNight(lonDeg, latDeg, decRad, subSolarLon)
