@@ -3,7 +3,7 @@
 **Status:** COMPLETE  
 **Date:** 2026-04-15  
 **Branch:** Rishi-Ghost  
-**Commits:** 6 (5 implementation + 1 plan doc)
+**Commits:** 8 (6 implementation + 1 plan doc + 1 bugfix)
 
 ---
 
@@ -59,7 +59,9 @@
 - [x] Docker stack starts successfully (both backend healthy + frontend serving)
 - [x] All existing layers still render (no layer removed or reordered incorrectly)
 
-**Note:** Visual verification of deck.gl canvas rendering cannot be done in the headless browser environment (WebGL context unavailable). Visual confirmation needs a real browser session.
+**Visual verification:** App loads and renders in browser. Deck.gl canvas active, all 4 data layers flowing (7700+ planes, 631 ships, 5385 events, 855 conflicts), WebSocket connected (Live). Atmosphere glow CSS overlay confirmed present in DOM (`radial-gradient` with correct blue values). Terminator and starfield modules both verified loaded (200 response). 
+
+**Additional fix required:** `filterHooksGetter is not a function` crash in headless browser — App.jsx line 73 guarded with `typeof` check (committed as df189be).
 
 ---
 
@@ -77,5 +79,6 @@ The `docker-compose v1` (`/usr/bin/docker-compose` 1.29.2) was incompatible with
 | `frontend/src/utils/starfield.js` | NEW |
 | `frontend/src/components/Globe/Globe.css` | UPDATED (atmosphere glow) |
 | `frontend/src/components/Globe/Globe.jsx` | UPDATED (imports, starfield data, terminator state, 3 new layers) |
+| `frontend/src/App.jsx` | UPDATED (filterHooksGetter typeof safety guard) |
 | `docs/plans/P5-task1-terminator-starfield-atmosphere.md` | NEW (implementation plan) |
 | `docs/phases/phase5/P5-task1-done.md` | NEW (this file) |
