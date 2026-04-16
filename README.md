@@ -2,7 +2,7 @@
 
 > Real-time GEOINT platform — track planes, ships, and world events on a 3D globe
 
-![Phase](https://img.shields.io/badge/Phase-4.5_Complete-blue)
+![Phase](https://img.shields.io/badge/Phase-5_Complete-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ## What Problem Does TerraWatch Solve?
@@ -17,11 +17,12 @@ TerraWatch provides real-time situational awareness of global mobility — who i
 Unlike expensive enterprise platforms, TerraWatch runs entirely in your browser using free APIs.
 
 **Core Features:**
-- Real-time aircraft tracking via ADS-B (OpenSky Network — global, ~12,000 aircraft)
-- Real-time maritime vessel tracking via AIS (Digitraffic — Nordic/Baltic, ~1,000–2,000 ships)
-- World event monitoring (GDELT) — V2
-- Conflict zone visualization (GDELT violent events) — V2
-- Intelligence alerting — V3
+- Real-time aircraft tracking via ADS-B (OpenSky Network + adsb.lol — global, ~12,000+ aircraft)
+- Real-time maritime vessel tracking via AIS (aisstream.io — global coverage)
+- World event monitoring (GDELT) — V2 (live)
+- Conflict zone visualization (GDELT violent events + conflict heatmap) — V2 (live)
+- Solar terminator line, starfield background, atmospheric rim glow — V3 (live)
+- Intelligence alerting — V4
 
 ---
 
@@ -30,8 +31,8 @@ Unlike expensive enterprise platforms, TerraWatch runs entirely in your browser 
 ```mermaid
 graph TB
     subgraph Client["Browser (React + deck.gl)"]
-        Globe["3D Globe"]
-        Hooks["useWebSocket<br/>usePlanes<br/>useShips"]
+        Globe["3D Globe — Terminator + Starfield + Atmosphere"]
+        Hooks["useWebSocket<br/>usePlanes<br/>useShips<br/>useEvents<br/>useConflicts"]
         Panels["PlaneInfoPanel<br/>ShipInfoPanel"]
         Globe <--> Hooks
         Hooks <--> Panels
@@ -41,8 +42,8 @@ graph TB
         WS["WebSocket Server /ws"]
         REST["REST API /api/*"]
         Schedulers["Background Schedulers"]
-        Services["adsb_service<br/>ais_service"]
-        DB[(SQLite<br/>planes<br/>ships)]
+        Services["adsb_service<br/>aisstream_service<br/>gdelt_service"]
+        DB[(SQLite<br/>planes<br/>ships<br/>events<br/>conflicts)]
         Schedulers --> Services
         Services --> DB
         WS <--> Schedulers
@@ -50,16 +51,18 @@ graph TB
     end
 
     Client -- "HTTP/REST + WebSocket" --> Backend
-    Services -->|"OpenSky Network"| OpenSky["OpenSky Network API"]
-    Services -->|"Digitraffic API"| Digitraffic["Digitraffic AIS API"]
+    Services -->|"OpenSky Network + adsb.lol"| ADSB["ADS-B APIs"]
+    Services -->|"aisstream.io WebSocket"| AIS["AIS Stream"]
+    Services -->|"GDELT Project"| GDELT["GDELT API"]
 ```
 
 ## Data Flow — Planes (ADS-B)
 
 ```mermaid
 flowchart LR
-    A["OpenSky Network API
-opensky-network.org/api/states/all"] --> B["adsb_service.fetch_planes()
+    A["OpenSky Network + adsb.lol API
+opensky-network.org/api/states/all
+api.adsb.lol/aircraft/json"] --> B["adsb_service.fetch_planes()
 AsyncIO + httpx + gzip"]
     B --> C["SQLite planes table
 Upsert + stale cleanup (5 min)"]
@@ -78,11 +81,10 @@ Slide-in on click"]
 
 ```mermaid
 flowchart LR
-    A1["Digitraffic /locations
-Positions + heading + speed"] --> B["ais_service.fetch_ships()
-Merge + dedup by MMSI"]
-    A2["Digitraffic /vessels
-Names + destinations + type"] --> B
+    A1["aisstream.io
+WebSocket stream
+Real-time vessel positions"] --> B["aisstream_service
+Parse + normalize + dedup by MMSI"]
     B --> C["SQLite ships table
 Upsert + stale cleanup (10 min)"]
     C --> D["WebSocket broadcast
@@ -104,9 +106,11 @@ Mutually exclusive w/ plane panel"]
 | Phase | Name | Status | Key Deliverables |
 |-------|------|--------|------------------|
 | 1 | Foundation Setup | Complete | FastAPI backend, React + deck.gl frontend, Docker Compose, REST API + WebSocket pipeline |
-| 2 | Live Aircraft Tracking | Complete | OpenSky integration (~12,000 aircraft), 30s refresh, directional icons, PlaneInfoPanel |
-| 3 | Live Ship Tracking | Complete | Digitraffic integration (Nordic/Baltic), 60s refresh, type-colored icons, ShipInfoPanel, mutual exclusion |
-| 4–7 | Events / Conflicts / Alerting | Planned | GDELT events + conflict heatmap (GDELT violent events), zone alerting, production hardening |
+| 2 | Live Aircraft Tracking | Complete | OpenSky + adsb.lol integration (~12,000+ aircraft), 30s refresh, directional icons, PlaneInfoPanel |
+| 3 | Live Ship Tracking | Complete | aisstream.io WebSocket integration (global coverage), real-time streaming, type-colored icons, ShipInfoPanel |
+| 4 | Events & Conflicts | Complete | GDELT world events, conflict heatmap, event/conflict filtering, ACLED integration |
+| 5 | Visual Enhancements | Complete | Solar terminator line, starfield background, atmospheric rim glow |
+| 6–7 | Alerting & Hardening | Planned | Zone alerting, production hardening |
 
 ### Phase 1 — Foundation Setup
 
@@ -117,17 +121,18 @@ Mutually exclusive w/ plane panel"]
 
 ### Phase 2 — Live Aircraft Tracking
 
-- OpenSky Network API integration (~12,000 aircraft)
+- OpenSky Network + adsb.lol API integration (~12,000+ aircraft)
 - Background scheduler (30s refresh)
 - WebSocket broadcast to all connected clients
 - Directional plane icons on globe, color-coded by altitude
 - Click-to-inspect PlaneInfoPanel (callsign, altitude, speed, heading)
+- OpenSky OAuth2 support for higher rate limits
 - Comprehensive backend test suite
 
 ### Phase 3 — Live Ship Tracking
 
-- Digitraffic AIS API integration (Nordic/Baltic coverage)
-- Background scheduler (60s refresh)
+- aisstream.io WebSocket integration (global coverage, real-time streaming)
+- Multi-source deduplication (digitraffic + aisstream)
 - WebSocket broadcast for ship updates (batch + individual)
 - Directional ship icons on globe, color-coded by type
 - Click-to-inspect ShipInfoPanel (name, MMSI, heading, speed, destination)
@@ -140,12 +145,18 @@ Mutually exclusive w/ plane panel"]
 
 ### Option 1 — Docker (Recommended)
 
-**Prerequisites:** Docker + Docker Compose installed. Internet required for map tile loading.
+**Prerequisites:** Docker + Docker Compose v2 installed. Internet required for map tile loading.
 
 ```bash
 # Clone the repository
 git clone https://github.com/RishiJain905/TerraWatch.git
 cd TerraWatch
+
+# Copy the environment template and fill in your API keys
+cp .env.example docker/.env
+# Edit docker/.env — add your aisstream.io key (required for ship tracking)
+# OpenSky credentials are optional but recommended for higher rate limits
+# See .env.example for all available variables
 
 # Start both backend and frontend
 cd docker
@@ -155,11 +166,20 @@ docker compose up --build
 open http://localhost:5173
 ```
 
+> **Important:** Docker Compose v2 is required (`docker compose` with a space). The older `docker-compose` v1 (hyphen) is incompatible with Docker Engine 29+.
+
 Docker will:
 - Build the backend Docker image and start it on port **8000**
 - Build the frontend Docker image and start it on port **5173**
 - Proxy `/api` and `/ws` requests from frontend to backend automatically
 - Run a healthcheck against `GET /health` before marking backend ready
+- Pass environment variables from `docker/.env` to the backend container
+
+**Required API keys:**
+| Key | Where to get | Required? |
+|-----|-------------|-----------|
+| `AISSTREAM_API_KEY` | https://aisstream.io/ (free) | Yes — ships won't track without it |
+| `OPENSKY_CLIENT_ID` + `SECRET` | https://opensky-network.org/ (free) | Optional — increases plane refresh rate limits |
 
 **Verify it works:**
 ```bash
@@ -339,9 +359,10 @@ Execution uses **Droid Missions** for structured multi-agent orchestration, or t
 
 | Version | Phases | Features | Status |
 |---------|--------|---------|--------|
-| **V1** | 1–3 | Live planes + ships on globe | **Current** |
-| **V2** | 4–5 | GDELT world events + conflict heatmap (GDELT violent events) | Planned |
-| **V3** | 6–7 | Zone alerting + production hardening | Planned |
+| **V1** | 1–3 | Live planes + ships on globe | Complete |
+| **V2** | 4 | GDELT world events + conflict heatmap | Complete |
+| **V3** | 5 | Terminator line + starfield + atmosphere | Complete |
+| **V4** | 6–7 | Zone alerting + production hardening | Planned |
 
 ---
 
@@ -390,13 +411,12 @@ Example ship_batch message:
 
 | Source | Type | Coverage | Auth | Status |
 |--------|------|----------|------|--------|
-| [OpenSky Network](https://opensky-network.org/api/states/all) | Aircraft (ADS-B) | Global (~12,000 aircraft) | None | Live |
-| [Digitraffic AIS](https://meri.digitraffic.fi/api/ais/v1/) | Ships (AIS) | Nordic/Baltic (~1,000–2,000 ships) | None | Live |
-| [GDELT Project](https://www.gdeltproject.org/) | World Events & Conflicts | Global | None | V2 (planned) |
+| [OpenSky Network](https://opensky-network.org/api/states/all) | Aircraft (ADS-B) | Global (~12,000+ aircraft) | OAuth2 (optional) | Live |
+| [adsb.lol](https://api.adsb.lol/) | Aircraft (ADS-B) | Global | None | Live |
+| [aisstream.io](https://aisstream.io/) | Ships (AIS) | Global (real-time WebSocket) | API Key (free) | Live |
+| [GDELT Project](https://www.gdeltproject.org/) | World Events | Global | None | Live |
 
 **Note:** ADS-B and AIS are public broadcast technologies — aircraft and vessels actively transmit their positions. This is established and legal in most jurisdictions.
-
-Digitraffic requires `Accept-Encoding: gzip` header. The backend handles this automatically.
 
 ---
 
