@@ -133,6 +133,8 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady }) {
   })
 
   // Terminator layer — semi-transparent dark fill on the night side
+  // wrapLongitude: true tells SolidPolygonLayer to split polygons that cross
+  // the ±180° antimeridian, fixing rendering when the night side straddles the date line
   const terminatorLayer = new SolidPolygonLayer({
     id: 'terminator-layer',
     data: [{ polygon: terminatorPolygon }],
@@ -142,6 +144,7 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady }) {
     lineWidthMinPixels: 1,
     stroked: true,
     pickable: false,
+    wrapLongitude: true,
   })
 
   // Build deck.gl layers
