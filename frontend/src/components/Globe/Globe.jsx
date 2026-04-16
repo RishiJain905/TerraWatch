@@ -145,7 +145,8 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady }) {
   })
 
   // Build deck.gl layers
-  const deckLayers = [starfieldLayer, terminatorLayer, tileLayer]
+  // Layer order matters: tileLayer (basemap/land) first, terminator on top, starfield is background
+  const deckLayers = [starfieldLayer, tileLayer, terminatorLayer]
 
   // Plane layer — directional icons
   if (layers && layers.planes) {
