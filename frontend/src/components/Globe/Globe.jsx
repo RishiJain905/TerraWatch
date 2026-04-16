@@ -56,7 +56,11 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady }) {
 
   useEffect(() => {
     if (onFilterHooksReady) {
-      onFilterHooksReady(() => filterHooksRef.current)
+      // Wrap getter in an outer function so React doesn't interpret it as a
+      // state updater. Without the wrapper, React would call
+      //   filterHooksGetter(prev) => filterHooksRef.current
+      // returning the data object directly instead of storing the getter function.
+      onFilterHooksReady(() => () => filterHooksRef.current)
     }
   }, [onFilterHooksReady])
 
