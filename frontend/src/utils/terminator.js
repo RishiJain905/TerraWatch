@@ -133,29 +133,33 @@ export function getTerminatorPolygon(date = new Date()) {
   const southPoleDark = isNight(subSolarLon + 180, -89.9, decRad, subSolarLon)
   const northPoleDark = isNight(subSolarLon + 180, 89.9, decRad, subSolarLon)
 
-  // Build polygon: east edge → south → west edge (reversed) → north → close
+  // Build polygon with CCW winding (GeoJSON right-hand rule):
+  //   west edge N→S → south closure → east edge S→N → north closure
+  // The night side is the interior; CCW ensures deck.gl fills it correctly.
+  // (Previous order east→south→west-reversed produced CW winding, which
+  //  deck.gl interprets as a hole, inverting the filled region.)
   const poly = []
 
-  // East edge N→S (night→day boundary)
-  for (const pt of eastEdge) poly.push([normalizeLon(pt.lon), pt.lat])
+  // West edge N→S (day→night boundary)
+  for (const pt of westEdge) poly.push([normalizeLon(pt.lon), pt.lat])
 
   // South closure
   if (southPoleDark) {
-    poly.push([normalizeLon(eastEdge[eastEdge.length - 1].lon), -90])
     poly.push([normalizeLon(westEdge[westEdge.length - 1].lon), -90])
+    poly.push([normalizeLon(eastEdge[eastEdge.length - 1].lon), -90])
   }
   // If south pole is lit (midnight sun), the terminator circles the pole —
   // the two edges already meet at the extremal latitude
 
-  // West edge S→N (day→night boundary)
-  for (let i = westEdge.length - 1; i >= 0; i--) {
-    poly.push([normalizeLon(westEdge[i].lon), westEdge[i].lat])
+  // East edge S→N (night→day boundary)
+  for (let i = eastEdge.length - 1; i >= 0; i--) {
+    poly.push([normalizeLon(eastEdge[i].lon), eastEdge[i].lat])
   }
 
   // North closure
   if (northPoleDark) {
-    poly.push([normalizeLon(westEdge[0].lon), 90])
     poly.push([normalizeLon(eastEdge[0].lon), 90])
+    poly.push([normalizeLon(westEdge[0].lon), 90])
   }
 
   // Close ring
