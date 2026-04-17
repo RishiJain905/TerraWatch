@@ -1,6 +1,53 @@
 import { useState } from 'react'
 import './Sidebar.css'
 
+function PlaneIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="square" strokeLinejoin="miter" aria-hidden="true">
+      <path d="M8 1.5 L9 6.5 L14.5 9 L14.5 10.5 L9 9.5 L8.5 13 L10.5 14 L10.5 14.5 L8 14 L5.5 14.5 L5.5 14 L7.5 13 L7 9.5 L1.5 10.5 L1.5 9 L7 6.5 Z" />
+    </svg>
+  )
+}
+
+function ShipIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="square" strokeLinejoin="miter" aria-hidden="true">
+      <path d="M2 10.5 L14 10.5 L12.5 13.5 L3.5 13.5 Z" />
+      <path d="M5 10.5 L5 5.5 L11 5.5 L11 10.5" />
+      <path d="M8 2.5 L8 5.5" />
+      <path d="M6.5 3.5 L9.5 3.5" />
+    </svg>
+  )
+}
+
+function GlobeIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="square" strokeLinejoin="miter" aria-hidden="true">
+      <circle cx="8" cy="8" r="6" />
+      <ellipse cx="8" cy="8" rx="3" ry="6" />
+      <path d="M2 8 L14 8" />
+    </svg>
+  )
+}
+
+function WarningIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="square" strokeLinejoin="miter" aria-hidden="true">
+      <path d="M8 2 L14.5 13.5 L1.5 13.5 Z" />
+      <path d="M8 6.5 L8 10" />
+      <path d="M8 11.5 L8 12" />
+    </svg>
+  )
+}
+
+function CaretIcon({ open }) {
+  return (
+    <svg viewBox="0 0 10 10" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="square" aria-hidden="true" style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 120ms ease' }}>
+      <path d="M3.5 2 L7 5 L3.5 8" />
+    </svg>
+  )
+}
+
 function PlanesFilterPanel({ filters, updateFilter }) {
   const fmt = (v) => Number(v).toLocaleString()
 
@@ -17,7 +64,7 @@ function PlanesFilterPanel({ filters, updateFilter }) {
             value={filters.altitudeMin}
             onChange={(e) => updateFilter('altitudeMin', Number(e.target.value))}
           />
-          <span>{fmt(filters.altitudeMin)} ft</span>
+          <span className="range-value">{fmt(filters.altitudeMin)} FT</span>
         </div>
       </div>
       <div className="filter-group">
@@ -31,7 +78,7 @@ function PlanesFilterPanel({ filters, updateFilter }) {
             value={filters.altitudeMax}
             onChange={(e) => updateFilter('altitudeMax', Number(e.target.value))}
           />
-          <span>{fmt(filters.altitudeMax)} ft</span>
+          <span className="range-value">{fmt(filters.altitudeMax)} FT</span>
         </div>
       </div>
       <div className="filter-group">
@@ -54,17 +101,17 @@ function PlanesFilterPanel({ filters, updateFilter }) {
             value={filters.speedMin}
             onChange={(e) => updateFilter('speedMin', Number(e.target.value))}
           />
-          <span>{filters.speedMin} kt</span>
+          <span className="range-value">{filters.speedMin} KT</span>
         </div>
       </div>
       <div className="filter-presets">
         <button onClick={() => { updateFilter('altitudeMin', 10000); updateFilter('altitudeMax', 50000) }}>
-          High Alt Only
+          High Alt
         </button>
         <button onClick={() => { updateFilter('altitudeMin', 0); updateFilter('altitudeMax', 10000) }}>
-          Low Alt Only
+          Low Alt
         </button>
-        <button onClick={() => { updateFilter('altitudeMin', 0); updateFilter('altitudeMax', 50000) }}>
+        <button className="preset-reset" onClick={() => { updateFilter('altitudeMin', 0); updateFilter('altitudeMax', 50000) }}>
           Reset
         </button>
       </div>
@@ -96,7 +143,8 @@ function ShipsFilterPanel({ filters, updateFilter }) {
                 checked={filters.types.includes(type)}
                 onChange={() => toggleType(type)}
               />
-              {type.charAt(0).toUpperCase() + type.slice(1)}
+              <span className="checkbox-box" aria-hidden="true" />
+              <span className="checkbox-text">{type.charAt(0).toUpperCase() + type.slice(1)}</span>
             </label>
           ))}
         </div>
@@ -112,7 +160,7 @@ function ShipsFilterPanel({ filters, updateFilter }) {
             value={filters.speedMin}
             onChange={(e) => updateFilter('speedMin', Number(e.target.value))}
           />
-          <span>{filters.speedMin} kt</span>
+          <span className="range-value">{filters.speedMin} KT</span>
         </div>
       </div>
     </div>
@@ -152,7 +200,8 @@ function EventsFilterPanel({ filters, updateFilter }) {
                 checked={filters.categories.includes(cat)}
                 onChange={() => toggleCategory(cat)}
               />
-              {formatCategory(cat)}
+              <span className="checkbox-box" aria-hidden="true" />
+              <span className="checkbox-text">{formatCategory(cat)}</span>
             </label>
           ))}
         </div>
@@ -168,7 +217,7 @@ function EventsFilterPanel({ filters, updateFilter }) {
             value={filters.toneMin}
             onChange={(e) => updateFilter('toneMin', Number(e.target.value))}
           />
-          <span>{filters.toneMin}</span>
+          <span className="range-value">{filters.toneMin}</span>
         </div>
       </div>
       <div className="filter-group">
@@ -182,7 +231,7 @@ function EventsFilterPanel({ filters, updateFilter }) {
             value={filters.toneMax}
             onChange={(e) => updateFilter('toneMax', Number(e.target.value))}
           />
-          <span>{filters.toneMax}</span>
+          <span className="range-value">{filters.toneMax}</span>
         </div>
       </div>
     </div>
@@ -203,7 +252,7 @@ function ConflictsFilterPanel({ filters, updateFilter }) {
             value={filters.intensityMin}
             onChange={(e) => updateFilter('intensityMin', Number(e.target.value))}
           />
-          <span>{filters.intensityMin}</span>
+          <span className="range-value">{filters.intensityMin}</span>
         </div>
       </div>
     </div>
@@ -217,11 +266,30 @@ const FILTER_PANELS = {
   conflicts: ConflictsFilterPanel,
 }
 
+function LayerCount({ hook }) {
+  if (!hook || hook.rawCount == null) return null
+  const { filteredCount, rawCount } = hook
+  if (filteredCount === rawCount) {
+    return <span className="layer-count mono"><span className="count-filtered">{rawCount.toLocaleString()}</span></span>
+  }
+  return (
+    <span className="layer-count mono">
+      <span className="count-filtered">{filteredCount.toLocaleString()}</span>
+      <span className="count-sep">/</span>
+      <span className="count-raw">{rawCount.toLocaleString()}</span>
+    </span>
+  )
+}
+
 function LayerItem({ layer, isActive, onToggleLayer, isExpanded, onToggleExpand, filterHook }) {
   const FilterPanel = FILTER_PANELS[layer.key]
+  const Icon = layer.Icon
 
   return (
-    <div className={`layer-item ${isActive ? 'active' : ''}`}>
+    <div
+      className={`layer-item ${isActive ? 'active' : ''} ${isExpanded ? 'expanded' : ''}`}
+      style={{ '--accent': layer.color }}
+    >
       <div
         className="layer-item-header"
         role="button"
@@ -235,32 +303,27 @@ function LayerItem({ layer, isActive, onToggleLayer, isExpanded, onToggleExpand,
           }
         }}
       >
-        <span className="layer-icon">{layer.icon}</span>
-        <span className="layer-label">
-          {layer.label}
-          {filterHook?.rawCount != null && (
-            <span className="layer-count">
-              {filterHook.filteredCount === filterHook.rawCount
-                ? filterHook.rawCount.toLocaleString()
-                : `${filterHook.filteredCount.toLocaleString()} / ${filterHook.rawCount.toLocaleString()}`}
-            </span>
-          )}
+        <span className="layer-icon"><Icon /></span>
+        <span className="layer-label-block">
+          <span className="layer-label">{layer.label}</span>
+          <LayerCount hook={filterHook} />
         </span>
         <button
           type="button"
           className="layer-toggle"
-          style={{ '--toggle-color': layer.color }}
           aria-pressed={isActive}
           aria-label={`${layer.label} layer`}
           onClick={(e) => { e.stopPropagation(); onToggleLayer(layer.key) }}
         >
-          <div className="toggle-knob" />
+          <span className="toggle-cell toggle-on" aria-hidden="true">ON</span>
+          <span className="toggle-cell toggle-off" aria-hidden="true">OFF</span>
         </button>
         <button
           className="expand-btn"
+          aria-label={isExpanded ? 'Collapse filters' : 'Expand filters'}
           onClick={(e) => { e.stopPropagation(); onToggleExpand(layer.key) }}
         >
-          {isExpanded ? '▾' : '▸'}
+          <CaretIcon open={isExpanded} />
         </button>
       </div>
       {isExpanded && filterHook && FilterPanel && (
@@ -279,20 +342,32 @@ export default function Sidebar({ layers, onToggleLayer, filterHooks }) {
   })
 
   const layerConfig = [
-    { key: 'planes', label: 'Aircraft', icon: '✈️', color: '#ff6464' },
-    { key: 'ships', label: 'Maritime', icon: '🚢', color: '#64c8ff' },
-    { key: 'events', label: 'World Events', icon: '🌍', color: '#ffc864' },
-    { key: 'conflicts', label: 'Conflict Zones', icon: '⚠️', color: '#ff3232' },
+    { key: 'planes', label: 'Aircraft', Icon: PlaneIcon, color: 'var(--accent-air)' },
+    { key: 'ships', label: 'Maritime', Icon: ShipIcon, color: 'var(--accent-sea)' },
+    { key: 'events', label: 'World Events', Icon: GlobeIcon, color: 'var(--accent-evt)' },
+    { key: 'conflicts', label: 'Conflict Zones', Icon: WarningIcon, color: 'var(--accent-cnf)' },
   ]
 
   const toggleExpand = (key) => {
     setExpandedPanels((prev) => ({ ...prev, [key]: !prev[key] }))
   }
 
+  const activeCount = Object.values(layers).filter(Boolean).length
+  const totalCount = layerConfig.length
+
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <h2>Data Layers</h2>
+        <div className="sidebar-header-row">
+          <span className="sidebar-header-mark" aria-hidden="true" />
+          <h2>Data Layers</h2>
+        </div>
+        <div className="sidebar-header-meta mono">
+          <span className="meta-dot" aria-hidden="true" />
+          <span>ONLINE</span>
+          <span className="meta-sep">·</span>
+          <span>{activeCount}/{totalCount} STREAMS</span>
+        </div>
       </div>
       <div className="layer-list">
         {layerConfig.map((layer) => (
@@ -308,7 +383,11 @@ export default function Sidebar({ layers, onToggleLayer, filterHooks }) {
         ))}
       </div>
       <div className="sidebar-footer">
-        <p className="phase-label">Phase 5 of 7</p>
+        <span className="footer-pulse" aria-hidden="true" />
+        <span className="footer-label mono">BUILD</span>
+        <span className="footer-value mono">5/7</span>
+        <span className="footer-sep">·</span>
+        <span className="footer-version mono">v0.5.0</span>
       </div>
     </aside>
   )

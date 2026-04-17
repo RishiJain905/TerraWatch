@@ -1,9 +1,10 @@
+import '../InfoPanel/infoPanel.css'
 import './ShipInfoPanel.css'
 import { SHIP_TYPE_COLORS } from '../../utils/shipIcons'
 
 function formatSpeed(speed) {
   if (!speed && speed !== 0) return '—'
-  return `${speed.toFixed(1)} kts`
+  return `${speed.toFixed(1)} KTS`
 }
 
 function formatHeading(h) {
@@ -39,7 +40,7 @@ export default function ShipInfoPanel({ ship, onClose }) {
   const typeColor = SHIP_TYPE_COLORS[ship.ship_type]?.hex || SHIP_TYPE_COLORS.other?.hex
 
   return (
-    <div className="ship-info-panel">
+    <div className="ship-info-panel" data-type="ship">
       <div className="ship-info-header">
         <h3>
           <span className="ship-type-dot" style={{ backgroundColor: typeColor }}></span>

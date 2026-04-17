@@ -1,3 +1,4 @@
+import '../InfoPanel/infoPanel.css'
 import './EventInfoPanel.css'
 
 function formatTone(tone) {
@@ -29,9 +30,12 @@ export default function EventInfoPanel({ event, onClose }) {
   if (!event) return null
 
   return (
-    <div className="plane-info-panel">
+    <div className="plane-info-panel" data-type="event">
       <div className="plane-info-header">
-        <h3>Event</h3>
+        <h3>
+          <span className="type-glyph" aria-hidden="true" />
+          Event
+        </h3>
         <button className="close-btn" onClick={onClose}>×</button>
       </div>
       <div className="plane-info-grid">
@@ -70,7 +74,7 @@ export default function EventInfoPanel({ event, onClose }) {
               target="_blank"
               rel="noopener noreferrer"
             >
-              View Source →
+              VIEW SOURCE →
             </a>
           </div>
         )}

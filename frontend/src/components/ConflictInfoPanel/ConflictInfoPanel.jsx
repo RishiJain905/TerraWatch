@@ -1,3 +1,4 @@
+import '../InfoPanel/infoPanel.css'
 import './ConflictInfoPanel.css'
 
 function formatDate(dateStr) {
@@ -32,9 +33,12 @@ export default function ConflictInfoPanel({ conflict, onClose }) {
   if (!conflict) return null
 
   return (
-    <div className="plane-info-panel">
+    <div className="plane-info-panel" data-type="conflict">
       <div className="plane-info-header">
-        <h3>{conflict.event_text || conflict.category || 'Conflict'}</h3>
+        <h3>
+          <span className="type-glyph" aria-hidden="true" />
+          {conflict.event_text || conflict.category || 'Conflict'}
+        </h3>
         <button className="close-btn" onClick={onClose}>×</button>
       </div>
       <div className="plane-info-grid">
@@ -68,7 +72,7 @@ export default function ConflictInfoPanel({ conflict, onClose }) {
               target="_blank"
               rel="noopener noreferrer"
             >
-              View Source →
+              VIEW SOURCE →
             </a>
           </div>
         )}

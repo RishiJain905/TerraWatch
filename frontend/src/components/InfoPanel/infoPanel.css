@@ -1,0 +1,211 @@
+/* ============================================================
+   Shared Info Panel chrome — Gotham bracket-card aesthetic
+   Applied to: .plane-info-panel, .ship-info-panel
+   ============================================================ */
+
+.plane-info-panel,
+.ship-info-panel {
+  position: absolute;
+  top: 72px;
+  right: 16px;
+  width: 300px;
+  background: rgba(11, 14, 20, 0.94);
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  z-index: 1000;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 16px 48px rgba(0, 0, 0, 0.6);
+  animation: ipSlideIn 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  font-family: var(--sans);
+  color: var(--text-0);
+
+  /* Default accent; overridden by [data-type] below */
+  --panel-accent: var(--accent-air);
+}
+
+.plane-info-panel[data-type='plane'] { --panel-accent: var(--accent-air); }
+.plane-info-panel[data-type='event'] { --panel-accent: var(--accent-evt); }
+.plane-info-panel[data-type='conflict'] { --panel-accent: var(--accent-cnf); }
+.ship-info-panel[data-type='ship'] { --panel-accent: var(--accent-sea); }
+
+/* Corner brackets — L-shapes in accent color */
+.plane-info-panel::before,
+.ship-info-panel::before,
+.plane-info-panel::after,
+.ship-info-panel::after {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+}
+
+.plane-info-panel::before,
+.ship-info-panel::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1px solid var(--panel-accent);
+  border-left: 1px solid var(--panel-accent);
+}
+
+.plane-info-panel::after,
+.ship-info-panel::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 1px solid var(--panel-accent);
+  border-right: 1px solid var(--panel-accent);
+}
+
+@keyframes ipSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ---------- Headers ---------- */
+
+.plane-info-header,
+.ship-info-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(to right, rgba(255, 255, 255, 0.02), transparent);
+  position: relative;
+}
+
+.plane-info-header::before,
+.ship-info-header::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--panel-accent);
+}
+
+.plane-info-header h3,
+.ship-info-header h3 {
+  margin: 0;
+  padding-left: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-0);
+  font-family: var(--mono);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Ship type dot in header — keep circular for identification */
+.ship-type-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 4px currentColor;
+}
+
+/* ---------- Close button ---------- */
+
+.close-btn {
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  color: var(--text-2);
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+  flex-shrink: 0;
+}
+
+.close-btn:hover {
+  background: var(--panel-accent);
+  color: var(--bg-0);
+  border-color: var(--panel-accent);
+}
+
+/* ---------- Grid ---------- */
+
+.plane-info-grid,
+.ship-info-grid {
+  padding: 4px 12px 10px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-row.full-width {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 10px 0;
+}
+
+.info-label {
+  color: var(--text-2);
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-family: var(--sans);
+  flex-shrink: 0;
+}
+
+.info-value {
+  color: var(--text-0);
+  font-size: 12px;
+  text-align: right;
+  font-family: var(--sans);
+  min-width: 0;
+  word-break: break-word;
+}
+
+.info-value.mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--panel-accent);
+  font-size: 11px;
+  letter-spacing: 0.3px;
+}
+
+.info-row.full-width .info-value {
+  text-align: left;
+  width: 100%;
+}

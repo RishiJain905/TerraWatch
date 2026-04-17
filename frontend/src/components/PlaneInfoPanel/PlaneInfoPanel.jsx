@@ -1,3 +1,4 @@
+import '../InfoPanel/infoPanel.css'
 import './PlaneInfoPanel.css'
 
 export default function PlaneInfoPanel({ plane, onClose }) {
@@ -5,12 +6,12 @@ export default function PlaneInfoPanel({ plane, onClose }) {
 
   const formatAlt = (alt) => {
     if (!alt && alt !== 0) return '—'
-    return `${alt.toLocaleString()} ft`
+    return `${alt.toLocaleString()} FT`
   }
 
   const formatSpeed = (speed) => {
     if (!speed && speed !== 0) return '—'
-    return `${speed.toFixed(0)} kt`
+    return `${speed.toFixed(0)} KT`
   }
 
   const formatHeading = (h) => {
@@ -21,9 +22,12 @@ export default function PlaneInfoPanel({ plane, onClose }) {
   }
 
   return (
-    <div className="plane-info-panel">
+    <div className="plane-info-panel" data-type="plane">
       <div className="plane-info-header">
-        <h3>{plane.callsign || plane.id}</h3>
+        <h3>
+          <span className="type-glyph" aria-hidden="true" />
+          {plane.callsign || plane.id}
+        </h3>
         <button className="close-btn" onClick={onClose}>×</button>
       </div>
       <div className="plane-info-grid">

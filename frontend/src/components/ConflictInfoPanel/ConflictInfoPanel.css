@@ -1,26 +1,40 @@
+/* Conflict accent glyph */
+.plane-info-panel[data-type='conflict'] .type-glyph {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: var(--accent-cnf);
+  box-shadow: 0 0 6px rgba(224, 60, 60, 0.6);
+  flex-shrink: 0;
+}
+
+/* Fatalities badges (retain original categories, restyled) */
 .fatalities-badge {
   display: inline-block;
-  padding: 2px 10px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  font-family: 'Courier New', monospace;
+  padding: 3px 10px;
+  border-radius: 2px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  border: 1px solid;
 }
 
 .fatalities-badge.fatalities-high {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(224, 60, 60, 0.12);
+  color: #F27373;
+  border-color: rgba(224, 60, 60, 0.35);
 }
 
 .fatalities-badge.fatalities-medium {
-  background: rgba(249, 115, 22, 0.2);
-  color: #fb923c;
-  border: 1px solid rgba(249, 115, 22, 0.3);
+  background: rgba(232, 140, 60, 0.12);
+  color: #F0A461;
+  border-color: rgba(232, 140, 60, 0.35);
 }
 
 .fatalities-badge.fatalities-zero {
-  background: rgba(107, 114, 128, 0.2);
-  color: #9ca3af;
-  border: 1px solid rgba(107, 114, 128, 0.3);
+  background: rgba(167, 174, 190, 0.10);
+  color: var(--text-1);
+  border-color: rgba(167, 174, 190, 0.25);
 }
