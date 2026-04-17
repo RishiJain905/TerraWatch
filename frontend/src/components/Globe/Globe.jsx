@@ -14,6 +14,7 @@ import { useShips } from '../../hooks/useShips'
 import { useEvents } from '../../hooks/useEvents'
 import { useConflicts } from '../../hooks/useConflicts'
 import MapStyleSwitcher, { MAP_STYLES } from './MapStyleSwitcher'
+import Minimap from './Minimap'
 import './Globe.css'
 
 // localStorage key for the currently-selected basemap style. Namespaced with
@@ -75,6 +76,9 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFil
       // the control still functions for the current session.
     }
   }, [mapStyle])
+
+  // Minimap visibility — off by default; user toggles via the MINI button.
+  const [showMinimap, setShowMinimap] = useState(false)
 
   // Starfield URL is generated exactly once per page load.
   const starfieldUrl = useMemo(() => getStarfieldDataUrl(), [])
@@ -606,6 +610,22 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFil
         </svg>
       )}
       <MapStyleSwitcher currentStyle={mapStyle} onChange={setMapStyle} />
+      <button
+        type="button"
+        className={`minimap-toggle${showMinimap ? ' minimap-toggle--active' : ''}`}
+        onClick={() => setShowMinimap(v => !v)}
+        aria-label="Toggle minimap"
+        title="Minimap"
+      >
+        MINI
+      </button>
+      {showMinimap && (
+        <Minimap
+          viewState={viewState}
+          basemapUrl={activeStyle.url}
+          overlayUrl={activeStyle.overlay}
+        />
+      )}
       <div className="globe-info">
         <span><span className="stat-label">Planes</span><span className="stat-value">{filteredPlanes.length === planes.length ? planes.length.toLocaleString() : `${filteredPlanes.length.toLocaleString()} / ${planes.length.toLocaleString()}`}</span></span>
         <span><span className="stat-label">Ships</span><span className="stat-value">{filteredShips.length === ships.length ? ships.length.toLocaleString() : `${filteredShips.length.toLocaleString()} / ${ships.length.toLocaleString()}`}</span></span>
