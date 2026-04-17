@@ -8,3 +8,6 @@ dist/
 .DS_Store
 .hermes/
 *.db
+*.db-journal
+*.db-wal
+*.db-shm

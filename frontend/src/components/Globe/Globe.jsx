@@ -173,7 +173,8 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFil
           const g = Math.round(Math.max(0, Math.min(255, 128 + t * 25.5)))
           return [r, g, 0, 200]
         },
-        getRadius: 150000,
+        // ~35 km — smaller than 150 km default so dense GDELT points don’t blanket regions
+        getRadius: 35000,
         radiusUnits: 'meters',
         onClick: (info) => {
           if (!onEntityClick) return false
@@ -228,7 +229,8 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFil
           const heat = Math.round(130 + Math.min(125, Math.abs(t) * 12))
           return [heat, 36, 36, 215]
         },
-        getRadius: 165000,
+        // Slightly smaller than events so both layers stay readable when enabled together
+        getRadius: 30000,
         radiusUnits: 'meters',
         onClick: (info) => {
           if (!onEntityClick) return false
