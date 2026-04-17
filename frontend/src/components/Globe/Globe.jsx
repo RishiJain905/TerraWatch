@@ -6,6 +6,7 @@ import { IconLayer, BitmapLayer, ScatterplotLayer } from '@deck.gl/layers'
 import { getPlaneIcon } from '../../utils/planeIcons'
 import { getShipIcon, SHIP_TYPE_COLORS } from '../../utils/shipIcons'
 import { buildTerminatorImage } from '../../utils/terminator'
+import { buildPolarCapData } from '../../utils/polarCaps'
 import { getStarfieldDataUrl } from '../../utils/starfield'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import { usePlanes } from '../../hooks/usePlanes'
@@ -66,6 +67,7 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFil
     ctx.putImageData(imgData, 0, 0)
     return canvas
   }, [now])
+  const polarCaps = useMemo(() => buildPolarCapData(now), [now])
 
   // Atmosphere overlay geometry — center + on-screen globe radius, computed
   // from the live deck.gl viewport so the rim glow tracks pan/zoom rather
@@ -96,9 +98,16 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFil
       // screen distance robustly recovers the on-screen globe radius at any
       // zoom, latitude, or bearing — no assumptions about the projection
       // internals beyond "visible limb = max projected radius".
-      const center = vp.project([viewState.longitude, viewState.latitude])
-      const cx0 = Number.isFinite(center[0]) ? center[0] : vp.width / 2
-      const cy0 = Number.isFinite(center[1]) ? center[1] : vp.height / 2
+      // GlobeView has no pitch and bearing rotates orientation only, so the
+      // sub-observer ALWAYS projects to the viewport midpoint by construction.
+      // Calling vp.project([lng, 89.xxx]) near the poles runs through a
+      // coordinate singularity and can drift by several pixels due to float
+      // accumulation, which pulls the gradient center off the globe — the
+      // "ghost circle" artifact near the poles. Use the midpoint directly as
+      // both the SVG origin and the distance reference so the rim always
+      // hugs the globe, not wherever the projection happens to land.
+      const cx0 = vp.width / 2
+      const cy0 = vp.height / 2
       const lat0 = (viewState.latitude * Math.PI) / 180
       const sinLat0 = Math.sin(lat0)
       const cosLat0 = Math.cos(lat0)
@@ -262,22 +271,51 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFil
     },
   })
 
+  // Fill the unsupported Web Mercator polar gap with geometry instead of a
+  // full-globe BitmapLayer. deck.gl has open GlobeView bitmap distortion bugs
+  // near ±90°, so two small cap circles are safer than stretching a raster
+  // through the pole singularity.
+  const polarCapLayer = new ScatterplotLayer({
+    id: 'polar-caps-layer',
+    data: polarCaps,
+    getPosition: d => d.position,
+    getRadius: d => d.radiusMeters,
+    radiusUnits: 'meters',
+    getFillColor: d => d.fillColor,
+    pickable: false,
+    parameters: { depthTest: false, cullMode: 'back' },
+  })
+
   // Terminator raster — dark-blue twilight tint keyed off solar elevation.
   // Placed ABOVE the basemap so the night side visibly dims land/ocean tiles;
   // transparent on the day side so the tiles render unchanged.
+  //
+  // Two WebGL knobs matter here, and both must be set:
+  //   1. depthTest:false — the basemap's BitmapLayer tiles live at the exact
+  //      same z as this overlay on the sphere surface, so keeping depth test
+  //      on z-fights into a visible triangle mesh across the globe.
+  //   2. cullMode:'back' — GlobeView wraps this flat quad around the sphere,
+  //      so the quad ends up with half its triangles facing the camera and
+  //      half facing away. Without back-face culling, the far-hemisphere
+  //      triangles paint through the front and surface as a "ghost" pole
+  //      disk at near-pole camera positions (antipode bleed-through). With
+  //      cullMode:'back', luma.gl drops those reverse-winding triangles
+  //      before fragment shading, eliminating the bleed.
   const terminatorLayer = new BitmapLayer({
     id: 'terminator-layer',
     image: terminatorImage,
-    // Clamp to the Web Mercator-friendly latitude range to match the basemap.
+    // Keep the bitmap inside the Web Mercator tile band. deck.gl has open
+    // GlobeView bitmap distortion bugs near the poles; the cap geometry above
+    // fills the remaining gap without routing a bitmap through ±90°.
     bounds: [-180, -85.0511, 180, 85.0511],
     opacity: 1,
     pickable: false,
-    parameters: { depthTest: false },
+    parameters: { depthTest: false, cullMode: 'back' },
   })
 
   // Build deck.gl layers (draw order: first = bottom). Ships/planes must be LAST so they
   // render on top and win picking — otherwise ScatterplotLayers steal clicks from vessels.
-  const deckLayers = [tileLayer, terminatorLayer]
+  const deckLayers = [polarCapLayer, tileLayer, terminatorLayer]
 
   // GDELT Events — under vessels for picking priority
   if (layers && layers.events) {

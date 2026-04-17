@@ -18,6 +18,10 @@ globalThis.ImageData = class {
 const { buildTerminatorImage, isNightSide } = await import(
   '../src/utils/terminator.js'
 )
+const {
+  buildPolarCapData,
+  POLAR_CAP_RADIUS_METERS,
+} = await import('../src/utils/polarCaps.js')
 const { getStarfieldDataUrl } = await import('../src/utils/starfield.js')
 
 function alphaAt(img, lon, lat) {
@@ -57,6 +61,36 @@ for (let i = 3; i < img.data.length; i += 4) {
   if (img.data[i] > maxA) maxA = img.data[i]
 }
 assert('alpha in [0, 140]', minA === 0 && maxA === 140, `got [${minA}, ${maxA}]`)
+
+// Polar cap geometry fills the Web Mercator gap without using a full-globe bitmap.
+const summerCaps = buildPolarCapData(summer)
+assert('two polar caps', summerCaps.length === 2)
+assert(
+  'polar cap radius exceeds mercator gap',
+  POLAR_CAP_RADIUS_METERS >= 550000,
+  `got ${POLAR_CAP_RADIUS_METERS}`,
+)
+assert(
+  'summer north cap uses opaque day surface',
+  JSON.stringify(summerCaps.find(cap => cap.id === 'north-polar-cap')?.fillColor) === JSON.stringify([26, 29, 36, 255]),
+  `got ${JSON.stringify(summerCaps.find(cap => cap.id === 'north-polar-cap')?.fillColor)}`,
+)
+assert(
+  'summer south cap darkens on night side',
+  (summerCaps.find(cap => cap.id === 'south-polar-cap')?.fillColor[3] || 0) >= 120,
+  `got ${summerCaps.find(cap => cap.id === 'south-polar-cap')?.fillColor[3]}`,
+)
+const winterCaps = buildPolarCapData(winter)
+assert(
+  'winter north cap darkens on night side',
+  (winterCaps.find(cap => cap.id === 'north-polar-cap')?.fillColor[3] || 0) >= 120,
+  `got ${winterCaps.find(cap => cap.id === 'north-polar-cap')?.fillColor[3]}`,
+)
+assert(
+  'winter south cap uses opaque day surface',
+  JSON.stringify(winterCaps.find(cap => cap.id === 'south-polar-cap')?.fillColor) === JSON.stringify([26, 29, 36, 255]),
+  `got ${JSON.stringify(winterCaps.find(cap => cap.id === 'south-polar-cap')?.fillColor)}`,
+)
 
 // Starfield utility
 const url = getStarfieldDataUrl()
