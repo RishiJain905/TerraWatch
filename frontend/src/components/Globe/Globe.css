@@ -4,7 +4,33 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: var(--bg-0);
+  /* Starfield sits directly on the container's background layer. The
+     image URL is injected inline from Globe.jsx; the color fallback
+     keeps the viewport dark if the SVG is still being parsed. DeckGL's
+     canvas renders as a child and naturally paints on top, so the stars
+     never occlude the globe. */
+  background-color: #05060a;
+  background-image: var(--starfield-bg, none);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  overflow: hidden;
+}
+
+/* ============================================================
+   Atmosphere — viewport-tracked SVG rim + haze overlay. Positions
+   and radii come from Globe.jsx's `atmosphere` state (computed
+   from the live deck.gl viewport). `screen` blending lets the
+   glow add light onto the basemap without obscuring it.
+   ============================================================ */
+.atmosphere-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  z-index: 5;
 }
 
 /* ============================================================

@@ -1,16 +1,22 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import DeckGL from '@deck.gl/react'
 import { _GlobeView as GlobeView } from '@deck.gl/core'
 import { TileLayer } from '@deck.gl/geo-layers'
 import { IconLayer, BitmapLayer, ScatterplotLayer } from '@deck.gl/layers'
 import { getPlaneIcon } from '../../utils/planeIcons'
 import { getShipIcon, SHIP_TYPE_COLORS } from '../../utils/shipIcons'
+import { buildTerminatorImage } from '../../utils/terminator'
+import { getStarfieldDataUrl } from '../../utils/starfield'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import { usePlanes } from '../../hooks/usePlanes'
 import { useShips } from '../../hooks/useShips'
 import { useEvents } from '../../hooks/useEvents'
 import { useConflicts } from '../../hooks/useConflicts'
 import './Globe.css'
+
+// Terminator texture is recomputed once per minute; the sun moves ~0.25°
+// across the sky in that window, well below a single pixel at 720×360.
+const TERMINATOR_REFRESH_MS = 60_000
 
 const INITIAL_VIEW_STATE = {
   longitude: 0,
@@ -37,6 +43,69 @@ function rowFromPick(info, dataArray) {
 export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFiltersChange }) {
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE)
   const deckRef = useRef(null)
+
+  // Starfield URL is generated exactly once per page load.
+  const starfieldUrl = useMemo(() => getStarfieldDataUrl(), [])
+
+  // Terminator raster: built from the current clock, rebuilt every minute.
+  // deck.gl v9's BitmapLayer accepts an HTMLCanvasElement but not raw
+  // ImageData — so the util produces ImageData and we paint it into a
+  // canvas once per tick. useMemo keeps the canvas stable between renders
+  // so deck.gl doesn't re-upload unchanged pixels on every react pass.
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), TERMINATOR_REFRESH_MS)
+    return () => clearInterval(id)
+  }, [])
+  const terminatorImage = useMemo(() => {
+    const imgData = buildTerminatorImage(now)
+    const canvas = document.createElement('canvas')
+    canvas.width = imgData.width
+    canvas.height = imgData.height
+    const ctx = canvas.getContext('2d')
+    ctx.putImageData(imgData, 0, 0)
+    return canvas
+  }, [now])
+
+  // Atmosphere overlay geometry — center + on-screen globe radius, computed
+  // from the live deck.gl viewport so the rim glow tracks pan/zoom rather
+  // than sitting at a fixed viewport-relative oval.
+  const [atmosphere, setAtmosphere] = useState({ cx: 0, cy: 0, r: 0, ready: false })
+  const updateAtmosphere = useCallback(() => {
+    const deck = deckRef.current?.deck
+    // deck.isInitialized is a public getter that returns `viewManager !== null`.
+    // getViewports() unconditionally asserts viewManager is non-null and throws
+    // synchronously before init finishes, which would crash the whole Globe
+    // subtree on first render. Guard and wrap defensively.
+    if (!deck || !deck.isInitialized) return
+    try {
+      const vp = deck.getViewports?.()[0]
+      if (!vp || !vp.width || !vp.height) return
+      // In GlobeView, the sub-observer point projects to screen center; a
+      // point 90° away on the sphere projects to the visible limb. Their
+      // screen distance is the on-screen globe radius in pixels.
+      const center = vp.project([viewState.longitude, viewState.latitude])
+      const edgeLon = ((viewState.longitude + 90) % 360 + 540) % 360 - 180
+      const edge = vp.project([edgeLon, viewState.latitude])
+      const dx = edge[0] - center[0]
+      const dy = edge[1] - center[1]
+      const r = Math.hypot(dx, dy)
+      if (!Number.isFinite(r) || r <= 0) return
+      setAtmosphere({ cx: vp.width / 2, cy: vp.height / 2, r, ready: true })
+    } catch (_) {
+      // Projection/viewport access can throw during init or transitions; keep
+      // the previous overlay geometry rather than flashing the glow off.
+    }
+  }, [viewState.longitude, viewState.latitude])
+
+  useEffect(() => {
+    updateAtmosphere()
+  }, [updateAtmosphere, viewState.zoom])
+
+  useEffect(() => {
+    window.addEventListener('resize', updateAtmosphere)
+    return () => window.removeEventListener('resize', updateAtmosphere)
+  }, [updateAtmosphere])
   const { events, filteredEvents, addEvents, filters: eventsFilters, updateFilter: eventsUpdateFilter } = useEvents()
   const { conflicts, filteredConflicts, addConflicts, filters: conflictsFilters, updateFilter: conflictsUpdateFilter } = useConflicts()
   const { planes, filteredPlanes, addPlane, addPlanes, removePlane, filters: planesFilters, updateFilter: planesUpdateFilter } = usePlanes()
@@ -155,9 +224,22 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFil
     },
   })
 
+  // Terminator raster — dark-blue twilight tint keyed off solar elevation.
+  // Placed ABOVE the basemap so the night side visibly dims land/ocean tiles;
+  // transparent on the day side so the tiles render unchanged.
+  const terminatorLayer = new BitmapLayer({
+    id: 'terminator-layer',
+    image: terminatorImage,
+    // Clamp to the Web Mercator-friendly latitude range to match the basemap.
+    bounds: [-180, -85.0511, 180, 85.0511],
+    opacity: 1,
+    pickable: false,
+    parameters: { depthTest: false },
+  })
+
   // Build deck.gl layers (draw order: first = bottom). Ships/planes must be LAST so they
   // render on top and win picking — otherwise ScatterplotLayers steal clicks from vessels.
-  const deckLayers = [tileLayer]
+  const deckLayers = [tileLayer, terminatorLayer]
 
   // GDELT Events — under vessels for picking priority
   if (layers && layers.events) {
@@ -321,17 +403,61 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFil
   }
 
   return (
-    <div className="globe-container">
+    <div
+      className="globe-container"
+      style={{ '--starfield-bg': starfieldUrl }}
+    >
       <DeckGL
         ref={deckRef}
         views={new GlobeView({ id: 'globe' })}
         viewState={viewState}
         onViewStateChange={({ viewState: vs }) => setViewState(vs)}
+        onLoad={updateAtmosphere}
+        onResize={updateAtmosphere}
         controller={true}
         layers={deckLayers}
         pickingRadius={36}
         onClick={handleDeckClick}
       />
+      {atmosphere.ready && (
+        <svg
+          className="atmosphere-overlay"
+          aria-hidden="true"
+          preserveAspectRatio="none"
+        >
+          <defs>
+            <radialGradient
+              id="atmosphere-haze"
+              cx={atmosphere.cx}
+              cy={atmosphere.cy}
+              r={atmosphere.r * 1.55}
+              gradientUnits="userSpaceOnUse"
+            >
+              <stop offset="0%" stopColor="rgba(90, 140, 220, 0)" />
+              <stop offset="58%" stopColor="rgba(90, 140, 220, 0)" />
+              <stop offset="72%" stopColor="rgba(90, 140, 220, 0.10)" />
+              <stop offset="100%" stopColor="rgba(30, 60, 120, 0)" />
+            </radialGradient>
+            <radialGradient
+              id="atmosphere-rim"
+              cx={atmosphere.cx}
+              cy={atmosphere.cy}
+              r={atmosphere.r * 1.12}
+              gradientUnits="userSpaceOnUse"
+            >
+              <stop offset="0%" stopColor="rgba(140, 180, 255, 0)" />
+              <stop offset="88%" stopColor="rgba(140, 180, 255, 0)" />
+              <stop
+                offset={`${((atmosphere.r / (atmosphere.r * 1.12)) * 100).toFixed(2)}%`}
+                stopColor="rgba(140, 180, 255, 0.22)"
+              />
+              <stop offset="100%" stopColor="rgba(140, 180, 255, 0)" />
+            </radialGradient>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#atmosphere-haze)" />
+          <rect width="100%" height="100%" fill="url(#atmosphere-rim)" />
+        </svg>
+      )}
       <div className="globe-info">
         <span><span className="stat-label">Planes</span><span className="stat-value">{filteredPlanes.length === planes.length ? planes.length.toLocaleString() : `${filteredPlanes.length.toLocaleString()} / ${planes.length.toLocaleString()}`}</span></span>
         <span><span className="stat-label">Ships</span><span className="stat-value">{filteredShips.length === ships.length ? ships.length.toLocaleString() : `${filteredShips.length.toLocaleString()} / ${ships.length.toLocaleString()}`}</span></span>
