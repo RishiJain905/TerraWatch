@@ -4,8 +4,12 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: #0a0a0f;
+  background: var(--bg-0);
 }
+
+/* ============================================================
+   Globe-info stat strip — bottom center HUD
+   ============================================================ */
 
 .globe-info {
   position: absolute;
@@ -13,94 +17,266 @@
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 24px;
-  padding: 10px 20px;
-  background: rgba(10, 10, 15, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 24px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(8px);
+  align-items: stretch;
+  padding: 0;
+  background: rgba(11, 14, 20, 0.92);
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  font-family: var(--sans);
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   z-index: 10;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 8px 32px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
 }
 
-.globe-info span {
-  display: flex;
+/* Corner bracket accents */
+.globe-info::before,
+.globe-info::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+}
+
+.globe-info::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1px solid var(--accent-air);
+  border-left: 1px solid var(--accent-air);
+}
+
+.globe-info::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 1px solid var(--accent-ok);
+  border-right: 1px solid var(--accent-ok);
+}
+
+.globe-info > span {
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
+  padding: 9px 14px;
+  border-right: 1px solid var(--line);
+  font-weight: 500;
+  color: var(--text-1);
+  white-space: nowrap;
 }
 
-.ws-status.connected {
-  color: #22c55e;
+.globe-info .stat-label {
+  font-family: var(--sans);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-2);
 }
 
-.ws-status.disconnected {
-  color: #eab308;
+.globe-info .stat-value {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'zero' 1;
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  color: var(--text-0);
+  text-transform: none;
 }
 
-.globe-info span::before {
+.globe-info > span:last-child {
+  border-right: none;
+}
+
+/* Replace the old generic currentColor dot with per-stat accent squares */
+.globe-info > span::before {
   content: '';
   display: inline-block;
   width: 6px;
   height: 6px;
-  border-radius: 50%;
-  background: currentColor;
+  border-radius: 0;
+  background: var(--text-3);
+  flex-shrink: 0;
+  box-shadow: none;
 }
+
+/* Numbers — mono, tabular, accent on the value via ::after is impossible from text node,
+   so we color the whole span via parent rule and rely on CSS to separate label vs number */
+.globe-info > span:nth-child(1) { color: var(--text-1); }
+.globe-info > span:nth-child(1)::before {
+  background: var(--accent-air);
+  box-shadow: 0 0 5px rgba(232, 184, 74, 0.5);
+}
+
+.globe-info > span:nth-child(2) { color: var(--text-1); }
+.globe-info > span:nth-child(2)::before {
+  background: var(--accent-sea);
+  box-shadow: 0 0 5px rgba(88, 196, 220, 0.5);
+}
+
+.globe-info > span:nth-child(3) { color: var(--text-1); }
+.globe-info > span:nth-child(3)::before {
+  background: var(--accent-evt);
+  box-shadow: 0 0 5px rgba(217, 161, 91, 0.5);
+}
+
+.globe-info > span:nth-child(4) { color: var(--text-1); }
+.globe-info > span:nth-child(4)::before {
+  background: var(--accent-cnf);
+  box-shadow: 0 0 5px rgba(224, 60, 60, 0.5);
+}
+
+/* WS status span is the last child */
+.globe-info .ws-status {
+  font-family: var(--mono);
+  letter-spacing: 1.2px;
+  padding-left: 14px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.globe-info .ws-status::before {
+  background: var(--text-3);
+  border-radius: 50%;
+  animation: none;
+}
+
+.ws-status.connected {
+  color: var(--accent-ok) !important;
+}
+
+.ws-status.connected::before {
+  background: var(--accent-ok) !important;
+  border-radius: 50% !important;
+  box-shadow: 0 0 6px rgba(95, 207, 138, 0.7) !important;
+  animation: wsPulse 1.6s ease-in-out infinite !important;
+}
+
+.ws-status.disconnected {
+  color: var(--accent-warn) !important;
+}
+
+.ws-status.disconnected::before {
+  background: var(--accent-warn) !important;
+  border-radius: 50% !important;
+  box-shadow: 0 0 6px rgba(232, 184, 74, 0.7) !important;
+}
+
+@keyframes wsPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.8); }
+}
+
+/* Hide the bullet/circle characters in the ws-status text node since we
+   already render a proper dot via ::before. Using a negative text-indent
+   on a pseudo would be hacky — instead, slightly tighten spacing. The
+   original text content (◉ Live / ○ Reconnecting) still reads naturally
+   in mono. */
+
+/* ============================================================
+   Globe legend — bottom-left reference card
+   ============================================================ */
 
 .globe-legend {
   position: absolute;
   bottom: 20px;
   left: 20px;
-  background: rgba(0, 0, 0, 0.7);
-  padding: 10px 15px;
-  border-radius: 6px;
-  font-size: 12px;
-  color: #fff;
+  background: rgba(11, 14, 20, 0.92);
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  padding: 12px 14px;
+  font-family: var(--sans);
+  font-size: 10px;
+  color: var(--text-1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   z-index: 100;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 8px 32px rgba(0, 0, 0, 0.5);
+  min-width: 160px;
+}
+
+.globe-legend::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 8px;
+  height: 8px;
+  border-top: 1px solid var(--accent-air);
+  border-left: 1px solid var(--accent-air);
+  pointer-events: none;
+}
+
+.globe-legend::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 8px;
+  height: 8px;
+  border-bottom: 1px solid var(--accent-sea);
+  border-right: 1px solid var(--accent-sea);
+  pointer-events: none;
 }
 
 .legend-section {
-  margin: 2px 0;
+  margin: 0;
 }
 
 .legend-title {
+  font-family: var(--sans);
   font-weight: 600;
-  font-size: 11px;
+  font-size: 9px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: rgba(255, 255, 255, 0.6);
-  margin-bottom: 4px;
-  margin-top: 4px;
+  letter-spacing: 1.5px;
+  color: var(--text-2);
+  margin-bottom: 6px;
+  margin-top: 0;
 }
 
 .legend-divider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.15);
-  margin: 8px 0;
+  background: var(--line);
+  margin: 10px 0;
 }
 
 .legend-item {
   display: flex;
   align-items: center;
-  margin: 4px 0;
+  margin: 3px 0;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.3px;
+  color: var(--text-1);
+  text-transform: uppercase;
 }
 
 .legend-dot {
-  width: 12px;
-  height: 12px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   margin-right: 8px;
+  flex-shrink: 0;
 }
 
-.legend-dot.low { background: rgb(0, 255, 100); }
-.legend-dot.medium { background: rgb(255, 255, 0); }
-.legend-dot.high { background: rgb(255, 100, 100); }
+.legend-dot.low { background: rgb(0, 255, 100); box-shadow: 0 0 4px rgba(0, 255, 100, 0.4); }
+.legend-dot.medium { background: rgb(255, 255, 0); box-shadow: 0 0 4px rgba(255, 255, 0, 0.4); }
+.legend-dot.high { background: rgb(255, 100, 100); box-shadow: 0 0 4px rgba(255, 100, 100, 0.4); }
 
 /* Ship type legend icons */
 .ship-icon {
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 1px;
   margin-right: 8px;
   display: inline-block;
+  flex-shrink: 0;
+  box-shadow: 0 0 4px currentColor;
 }

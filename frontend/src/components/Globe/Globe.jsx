@@ -333,12 +333,12 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFil
         onClick={handleDeckClick}
       />
       <div className="globe-info">
-        <span>Planes: {filteredPlanes.length === planes.length ? planes.length : `${filteredPlanes.length} / ${planes.length}`}</span>
-        <span>Ships: {filteredShips.length === ships.length ? ships.length : `${filteredShips.length} / ${ships.length}`}</span>
-        <span>Events: {filteredEvents.length === events.length ? events.length : `${filteredEvents.length} / ${events.length}`}</span>
-        <span>Conflicts: {filteredConflicts.length === conflicts.length ? conflicts.length : `${filteredConflicts.length} / ${conflicts.length}`}</span>
+        <span><span className="stat-label">Planes</span><span className="stat-value">{filteredPlanes.length === planes.length ? planes.length.toLocaleString() : `${filteredPlanes.length.toLocaleString()} / ${planes.length.toLocaleString()}`}</span></span>
+        <span><span className="stat-label">Ships</span><span className="stat-value">{filteredShips.length === ships.length ? ships.length.toLocaleString() : `${filteredShips.length.toLocaleString()} / ${ships.length.toLocaleString()}`}</span></span>
+        <span><span className="stat-label">Events</span><span className="stat-value">{filteredEvents.length === events.length ? events.length.toLocaleString() : `${filteredEvents.length.toLocaleString()} / ${events.length.toLocaleString()}`}</span></span>
+        <span><span className="stat-label">Conflicts</span><span className="stat-value">{filteredConflicts.length === conflicts.length ? conflicts.length.toLocaleString() : `${filteredConflicts.length.toLocaleString()} / ${conflicts.length.toLocaleString()}`}</span></span>
         <span className={`ws-status ${connected ? 'connected' : 'disconnected'}`}>
-          {connected ? '\u25CF Live' : '\u25CB Reconnecting'}
+          {connected ? 'Live' : 'Reconnecting'}
         </span>
       </div>
       <div className="globe-legend">
