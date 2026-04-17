@@ -81,17 +81,55 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFil
     try {
       const vp = deck.getViewports?.()[0]
       if (!vp || !vp.width || !vp.height) return
-      // In GlobeView, the sub-observer point projects to screen center; a
-      // point 90° away on the sphere projects to the visible limb. Their
-      // screen distance is the on-screen globe radius in pixels.
+      // deck.gl's GlobeView is a perspective projection, so the visible limb
+      // lives at a geodesic angle `d_limb = acos(R / C)` from the sub-observer
+      // — NOT at a fixed 90°. As the camera distance C approaches R (zooming
+      // in), d_limb shrinks and any 90° sample point sits behind the visible
+      // limb, projecting INSIDE the actual on-screen circumference. That's
+      // why a naive 90° probe pulls the rim inward at high zoom and collapses
+      // it near the poles.
+      //
+      // Screen radius as a function of geodesic d:
+      //   r(d) = f · R · sin(d) / (C − R·cos(d))
+      // which is unimodal with argmax at d_limb. Sampling a grid of geodesic
+      // distances (8 bearings × 15 radii) and taking the maximum projected
+      // screen distance robustly recovers the on-screen globe radius at any
+      // zoom, latitude, or bearing — no assumptions about the projection
+      // internals beyond "visible limb = max projected radius".
       const center = vp.project([viewState.longitude, viewState.latitude])
-      const edgeLon = ((viewState.longitude + 90) % 360 + 540) % 360 - 180
-      const edge = vp.project([edgeLon, viewState.latitude])
-      const dx = edge[0] - center[0]
-      const dy = edge[1] - center[1]
-      const r = Math.hypot(dx, dy)
-      if (!Number.isFinite(r) || r <= 0) return
-      setAtmosphere({ cx: vp.width / 2, cy: vp.height / 2, r, ready: true })
+      const cx0 = Number.isFinite(center[0]) ? center[0] : vp.width / 2
+      const cy0 = Number.isFinite(center[1]) ? center[1] : vp.height / 2
+      const lat0 = (viewState.latitude * Math.PI) / 180
+      const sinLat0 = Math.sin(lat0)
+      const cosLat0 = Math.cos(lat0)
+      const BEARINGS = 8
+      const RADII = 15
+      let rMax = 0
+      for (let j = 1; j <= RADII; j++) {
+        const dRad = (Math.PI / 2) * (j / RADII) // 6°, 12°, … 90°
+        const sinD = Math.sin(dRad)
+        const cosD = Math.cos(dRad)
+        for (let i = 0; i < BEARINGS; i++) {
+          const theta = (i * 2 * Math.PI) / BEARINGS
+          const sinLat2 = sinLat0 * cosD + cosLat0 * sinD * Math.cos(theta)
+          const sinLat2Clamped = sinLat2 > 1 ? 1 : sinLat2 < -1 ? -1 : sinLat2
+          const lat2 = Math.asin(sinLat2Clamped)
+          const dLonRad = Math.atan2(
+            Math.sin(theta) * sinD * cosLat0,
+            cosD - sinLat0 * sinLat2Clamped,
+          )
+          const lon2 =
+            ((viewState.longitude + (dLonRad * 180) / Math.PI + 540) % 360) -
+            180
+          const lat2Deg = (lat2 * 180) / Math.PI
+          const p = vp.project([lon2, lat2Deg])
+          if (!Number.isFinite(p[0]) || !Number.isFinite(p[1])) continue
+          const d = Math.hypot(p[0] - cx0, p[1] - cy0)
+          if (d > rMax) rMax = d
+        }
+      }
+      if (rMax <= 0) return
+      setAtmosphere({ cx: cx0, cy: cy0, r: rMax, ready: true })
     } catch (_) {
       // Projection/viewport access can throw during init or transitions; keep
       // the previous overlay geometry rather than flashing the glow off.
