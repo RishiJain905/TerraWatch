@@ -66,6 +66,14 @@
   background: rgba(255, 255, 255, 0.2);
   position: relative;
   transition: background 0.2s;
+  flex-shrink: 0;
+  padding: 0;
+  margin: 0;
+  border: none;
+  cursor: pointer;
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .layer-item.active .layer-toggle {
@@ -74,17 +82,20 @@
 
 .toggle-knob {
   position: absolute;
-  top: 2px;
+  top: 50%;
   left: 2px;
   width: 16px;
   height: 16px;
   border-radius: 50%;
   background: white;
-  transition: transform 0.2s;
+  transform: translate(0, -50%);
+  transition: transform 0.2s, left 0.2s;
+  pointer-events: none;
 }
 
 .layer-item.active .toggle-knob {
-  transform: translateX(16px);
+  left: calc(100% - 2px);
+  transform: translate(-100%, -50%);
 }
 
 .sidebar-footer {
@@ -127,6 +138,8 @@
   flex-direction: column;
   gap: 12px;
   margin-top: 4px;
+  position: relative;
+  z-index: 1;
 }
 
 /* Filter group (label + control) */
@@ -186,6 +199,15 @@
   cursor: pointer;
 }
 
+.checkbox-label input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: #4a90d9;
+}
+
 /* Preset buttons */
 .filter-presets {
   display: flex;
@@ -211,6 +233,8 @@
 /* Range input styling for dark theme */
 .filter-group input[type='range'] {
   width: 100%;
+  min-height: 28px;
+  cursor: pointer;
   accent-color: #4a90d9;
 }
 

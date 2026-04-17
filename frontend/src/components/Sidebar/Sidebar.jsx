@@ -185,18 +185,6 @@ function EventsFilterPanel({ filters, updateFilter }) {
           <span>{filters.toneMax}</span>
         </div>
       </div>
-      <div className="filter-group">
-        <label>Date Range</label>
-        <select
-          value={filters.dateRange}
-          onChange={(e) => updateFilter('dateRange', e.target.value)}
-        >
-          <option value="all">All Time</option>
-          <option value="24h">Last 24 Hours</option>
-          <option value="48h">Last 48 Hours</option>
-          <option value="7d">Last 7 Days</option>
-        </select>
-      </div>
     </div>
   )
 }
@@ -217,18 +205,6 @@ function ConflictsFilterPanel({ filters, updateFilter }) {
           />
           <span>{filters.intensityMin}</span>
         </div>
-      </div>
-      <div className="filter-group">
-        <label>Date Range</label>
-        <select
-          value={filters.dateRange}
-          onChange={(e) => updateFilter('dateRange', e.target.value)}
-        >
-          <option value="all">All Time</option>
-          <option value="24h">Last 24 Hours</option>
-          <option value="48h">Last 48 Hours</option>
-          <option value="7d">Last 7 Days</option>
-        </select>
       </div>
     </div>
   )

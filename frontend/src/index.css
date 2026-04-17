@@ -31,6 +31,9 @@ body {
 .globe-wrapper {
   flex: 1;
   position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .status-bar {

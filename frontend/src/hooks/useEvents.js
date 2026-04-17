@@ -21,7 +21,6 @@ const DEFAULT_FILTERS = {
   ],
   toneMin: -10,
   toneMax: 10,
-  dateRange: 'all',
 }
 
 export function useEvents() {
@@ -66,8 +65,6 @@ export function useEvents() {
 
   // Filtered events based on current filters
   const filteredEvents = useMemo(() => {
-    const now = Date.now()
-
     return events.filter(event => {
       // Category filter — exclude events with empty category
       if (!event.category || !filters.categories.includes(event.category)) {
@@ -78,30 +75,6 @@ export function useEvents() {
       const tone = event.tone || 0
       if (tone < filters.toneMin || tone > filters.toneMax) {
         return false
-      }
-
-      // Date range filter
-      if (filters.dateRange !== 'all') {
-        if (!event.date) return false
-        const eventDate = new Date(event.date + 'T00:00:00Z').getTime()
-        if (Number.isNaN(eventDate)) return false
-        let cutoff
-        switch (filters.dateRange) {
-          case '24h':
-            cutoff = now - 86400000
-            break
-          case '48h':
-            cutoff = now - 172800000
-            break
-          case '7d':
-            cutoff = now - 604800000
-            break
-          default:
-            cutoff = 0
-        }
-        if (eventDate < cutoff) {
-          return false
-        }
       }
 
       return true

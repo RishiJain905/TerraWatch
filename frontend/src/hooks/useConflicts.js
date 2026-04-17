@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 
 const DEFAULT_FILTERS = {
   intensityMin: 0,
-  dateRange: 'all',
 }
 
 export function useConflicts() {
@@ -47,37 +46,11 @@ export function useConflicts() {
 
   // Filtered conflicts based on current filters
   const filteredConflicts = useMemo(() => {
-    const now = Date.now()
-
     return conflicts.filter(conflict => {
       // Intensity filter (tone-based: Math.abs(tone || 0) + 1 >= intensityMin)
       const intensity = Math.abs(conflict.tone || 0) + 1
       if (intensity < filters.intensityMin) {
         return false
-      }
-
-      // Date range filter
-      if (filters.dateRange !== 'all') {
-        if (!conflict.date) return false
-        const conflictDate = new Date(conflict.date + 'T00:00:00Z').getTime()
-        if (Number.isNaN(conflictDate)) return false
-        let cutoff
-        switch (filters.dateRange) {
-          case '24h':
-            cutoff = now - 86400000
-            break
-          case '48h':
-            cutoff = now - 172800000
-            break
-          case '7d':
-            cutoff = now - 604800000
-            break
-          default:
-            cutoff = 0
-        }
-        if (conflictDate < cutoff) {
-          return false
-        }
       }
 
       return true

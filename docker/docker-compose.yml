@@ -10,12 +10,12 @@ services:
     volumes:
       - ../backend:/app
     working_dir: /app
+    # Load TerraWatch/.env inside the container. Do not rely on ${VAR} host interpolation
+    # here — an empty host shell would override credentials even if .env exists.
+    env_file:
+      - ../.env
     environment:
       - PYTHONUNBUFFERED=1
-      - AISSTREAM_API_KEY=${AISSTREAM_API_KEY:-}
-      - OPENSKY_CLIENT_ID=${OPENSKY_CLIENT_ID:-}
-      - OPENSKY_CLIENT_SECRET=${OPENSKY_CLIENT_SECRET:-}
-      - GDELT_REFRESH_SECONDS=${GDELT_REFRESH_SECONDS:-900}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s

@@ -21,6 +21,11 @@ function App() {
 
   const handleFilterHooksReady = useCallback((getter) => setFilterHooksGetter(getter), [])
 
+  const [, setFilterUiEpoch] = useState(0)
+  const bumpSidebarForFilters = useCallback(() => {
+    setFilterUiEpoch((n) => n + 1)
+  }, [])
+
   const [selectedPlane, setSelectedPlane] = useState(null)
   const [selectedShip, setSelectedShip] = useState(null)
   const [selectedEvent, setSelectedEvent] = useState(null)
@@ -72,7 +77,12 @@ function App() {
       <div className="main-content">
         <Sidebar layers={layers} onToggleLayer={toggleLayer} filterHooks={typeof filterHooksGetter === 'function' ? filterHooksGetter() : null} />
         <div className="globe-wrapper">
-          <Globe layers={layers} onEntityClick={handleEntityClick} onFilterHooksReady={handleFilterHooksReady} />
+          <Globe
+            layers={layers}
+            onEntityClick={handleEntityClick}
+            onFilterHooksReady={handleFilterHooksReady}
+            onFiltersChange={bumpSidebarForFilters}
+          />
           {selectedPlane && (
             <PlaneInfoPanel
               plane={selectedPlane}

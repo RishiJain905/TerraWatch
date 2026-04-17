@@ -1,6 +1,11 @@
 import os
+from pathlib import Path
+
 from dotenv import load_dotenv
 
+# TerraWatch/.env (repo root), then cwd — fixes Docker / uvicorn cwd = backend/ where .env may not exist.
+_repo_root = Path(__file__).resolve().parents[2]
+load_dotenv(_repo_root / ".env")
 load_dotenv()
 
 

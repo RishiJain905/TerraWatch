@@ -2,8 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import DeckGL from '@deck.gl/react'
 import { _GlobeView as GlobeView } from '@deck.gl/core'
 import { TileLayer } from '@deck.gl/geo-layers'
-import { IconLayer, BitmapLayer, ScatterplotLayer, SolidPolygonLayer } from '@deck.gl/layers'
-import { HeatmapLayer } from '@deck.gl/aggregation-layers'
+import { IconLayer, BitmapLayer, ScatterplotLayer } from '@deck.gl/layers'
 import { getPlaneIcon } from '../../utils/planeIcons'
 import { getShipIcon, SHIP_TYPE_COLORS } from '../../utils/shipIcons'
 import { useWebSocket } from '../../hooks/useWebSocket'
@@ -12,8 +11,6 @@ import { useShips } from '../../hooks/useShips'
 import { useEvents } from '../../hooks/useEvents'
 import { useConflicts } from '../../hooks/useConflicts'
 import './Globe.css'
-import { getTerminatorPolygon } from '../../utils/terminator'
-import { generateStarfield } from '../../utils/starfield'
 
 const INITIAL_VIEW_STATE = {
   longitude: 0,
@@ -22,9 +19,6 @@ const INITIAL_VIEW_STATE = {
   pitch: 0,
   bearing: 0,
 }
-
-// Generate starfield once — stable across re-renders (seeded PRNG)
-const STARFIELD_DATA = generateStarfield({ count: 800, radius: 20000000, seed: 42 })
 
 // Ship type entries for the legend
 const SHIP_LEGEND = [
@@ -35,8 +29,14 @@ const SHIP_LEGEND = [
   { type: 'other',     label: 'Other',     color: SHIP_TYPE_COLORS.other.hex },
 ]
 
-export default function Globe({ layers, onEntityClick, onFilterHooksReady }) {
+function rowFromPick(info, dataArray) {
+  if (!info) return null
+  return info.object ?? (info.index >= 0 ? dataArray[info.index] : null)
+}
+
+export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFiltersChange }) {
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE)
+  const deckRef = useRef(null)
   const { events, filteredEvents, addEvents, filters: eventsFilters, updateFilter: eventsUpdateFilter } = useEvents()
   const { conflicts, filteredConflicts, addConflicts, filters: conflictsFilters, updateFilter: conflictsUpdateFilter } = useConflicts()
   const { planes, filteredPlanes, addPlane, addPlanes, removePlane, filters: planesFilters, updateFilter: planesUpdateFilter } = usePlanes()
@@ -64,15 +64,11 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady }) {
     }
   }, [onFilterHooksReady])
 
-  // Terminator polygon — recalculated every 60 seconds (terminator moves ~15°/hour)
-  const [terminatorPolygon, setTerminatorPolygon] = useState(() => getTerminatorPolygon())
-
+  // Sidebar reads hooks via a getter on App re-render only; when filters change inside
+  // Globe, bump App so controlled range inputs and checkboxes stay in sync.
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTerminatorPolygon(getTerminatorPolygon())
-    }, 60000) // every minute
-    return () => clearInterval(interval)
-  }, [])
+    onFiltersChange?.()
+  }, [planesFilters, shipsFilters, eventsFilters, conflictsFilters, onFiltersChange])
 
   // Handle WebSocket messages — planes + ships
   const handleWSMessage = useCallback((msg) => {
@@ -105,6 +101,42 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady }) {
 
   const { connected } = useWebSocket(handleWSMessage)
 
+  // Deck defaults pickingRadius to 0 (single pixel) — IconLayer misses unless cursor is exact.
+  // When pointer-down picks nothing, re-query ships/planes with a pixel radius.
+  const handleDeckClick = useCallback(
+    (info) => {
+      if (!onEntityClick || info.picked) return
+      const api = deckRef.current
+      if (!api?.pickMultipleObjects) return
+      if (layers?.ships) {
+        const hits = api.pickMultipleObjects({
+          x: info.x,
+          y: info.y,
+          radius: 40,
+          depth: 16,
+          layerIds: ['ships-layer'],
+        })
+        const row = rowFromPick(hits[0], filteredShips)
+        if (row) {
+          onEntityClick('ship', row)
+          return
+        }
+      }
+      if (layers?.planes) {
+        const hits = api.pickMultipleObjects({
+          x: info.x,
+          y: info.y,
+          radius: 40,
+          depth: 16,
+          layerIds: ['planes-layer'],
+        })
+        const row = rowFromPick(hits[0], filteredPlanes)
+        if (row) onEntityClick('plane', row)
+      }
+    },
+    [onEntityClick, layers, filteredShips, filteredPlanes],
+  )
+
   // Tile layer for dark basemap rendered on the globe
   const tileLayer = new TileLayer({
     id: 'base-tiles',
@@ -123,73 +155,11 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady }) {
     },
   })
 
-  // Starfield layer — scatter points on a large-radius sphere behind the globe
-  const starfieldLayer = new ScatterplotLayer({
-    id: 'starfield-layer',
-    data: STARFIELD_DATA,
-    pickable: false,
-    getPosition: d => d.position,
-    getFillColor: d => d.color,
-    getRadius: d => d.radius,
-    radiusUnits: 'meters',
-    opacity: 0.9,
-    stroked: false,
-  })
+  // Build deck.gl layers (draw order: first = bottom). Ships/planes must be LAST so they
+  // render on top and win picking — otherwise ScatterplotLayers steal clicks from vessels.
+  const deckLayers = [tileLayer]
 
-  // Terminator layer — semi-transparent dark fill on the night side
-  // wrapLongitude: true tells SolidPolygonLayer to split polygons that cross
-  // the ±180° antimeridian, fixing rendering when the night side straddles the date line
-  const terminatorLayer = new SolidPolygonLayer({
-    id: 'terminator-layer',
-    data: [{ polygon: terminatorPolygon }],
-    getPolygon: d => d.polygon,
-    getFillColor: [0, 0, 30, 128],   // dark blue, 50% transparent
-    getLineColor: [50, 80, 160, 100], // subtle blue terminator line
-    lineWidthMinPixels: 1,
-    stroked: true,
-    pickable: false,
-    wrapLongitude: true,
-  })
-
-  // Build deck.gl layers
-  // Layer order matters: tileLayer (basemap/land) first, terminator on top, starfield is background
-  const deckLayers = [starfieldLayer, tileLayer, terminatorLayer]
-
-  // Plane layer — directional icons
-  if (layers && layers.planes) {
-    deckLayers.push(
-      new IconLayer({
-        id: 'planes-layer',
-        data: filteredPlanes,
-        pickable: true,
-        getIcon: d => getPlaneIcon(d.alt),
-        getPosition: d => [d.lon, d.lat],
-        getSize: 48,
-        getAngle: d => -(d.heading || 0),
-        onClick: (info) => onEntityClick && onEntityClick('plane', info.object),
-        billboard: false,
-      })
-    )
-  }
-
-  // Ship layer — directional icons, color-coded by type
-  if (layers && layers.ships) {
-    deckLayers.push(
-      new IconLayer({
-        id: 'ships-layer',
-        data: filteredShips,
-        pickable: true,
-        getIcon: d => getShipIcon(d.ship_type),
-        getPosition: d => [d.lon, d.lat],
-        getSize: 48,
-        getAngle: d => -(d.heading || 0),
-        onClick: (info) => onEntityClick && onEntityClick('ship', info.object),
-        billboard: false,
-      })
-    )
-  }
-
-  // GDELT Events layer — colored scatter points by tone
+  // GDELT Events — under vessels for picking priority
   if (layers && layers.events) {
     deckLayers.push(
       new ScatterplotLayer({
@@ -205,24 +175,145 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady }) {
         },
         getRadius: 150000,
         radiusUnits: 'meters',
-        onClick: (info) => onEntityClick && onEntityClick('event', info.object),
+        onClick: (info) => {
+          if (!onEntityClick) return false
+          const api = deckRef.current
+          if (layers?.ships && api?.pickMultipleObjects) {
+            const sh = api.pickMultipleObjects({
+              x: info.x,
+              y: info.y,
+              radius: 40,
+              depth: 12,
+              layerIds: ['ships-layer'],
+            })
+            const shipRow = rowFromPick(sh[0], filteredShips)
+            if (shipRow) {
+              onEntityClick('ship', shipRow)
+              return true
+            }
+          }
+          if (layers?.planes && api?.pickMultipleObjects) {
+            const ph = api.pickMultipleObjects({
+              x: info.x,
+              y: info.y,
+              radius: 40,
+              depth: 12,
+              layerIds: ['planes-layer'],
+            })
+            const planeRow = rowFromPick(ph[0], filteredPlanes)
+            if (planeRow) {
+              onEntityClick('plane', planeRow)
+              return true
+            }
+          }
+          const row = rowFromPick(info, filteredEvents)
+          if (!row) return false
+          onEntityClick('event', row)
+          return true
+        },
       })
     )
   }
 
-  // Conflicts layer — GDELT violent events heatmap by tone
+  // Conflicts — HeatmapLayer does not draw on GlobeView; use scatter points (red) like events.
   if (layers && layers.conflicts) {
     deckLayers.push(
-      new HeatmapLayer({
+      new ScatterplotLayer({
         id: 'conflicts-layer',
         data: filteredConflicts,
         pickable: true,
         getPosition: d => [d.lon, d.lat],
-        getWeight: d => Math.abs(d.tone || 0) + 1,
-        intensity: 1,
-        threshold: 0.05,
-        colorRange: [[255,0,0], [255,80,0], [255,160,0], [255,255,0]],
-        onClick: (info) => onEntityClick && onEntityClick('conflict', info.object),
+        getFillColor: (d) => {
+          const t = Math.max(-10, Math.min(10, d.tone || 0))
+          const heat = Math.round(130 + Math.min(125, Math.abs(t) * 12))
+          return [heat, 36, 36, 215]
+        },
+        getRadius: 165000,
+        radiusUnits: 'meters',
+        onClick: (info) => {
+          if (!onEntityClick) return false
+          const api = deckRef.current
+          if (layers?.ships && api?.pickMultipleObjects) {
+            const sh = api.pickMultipleObjects({
+              x: info.x,
+              y: info.y,
+              radius: 40,
+              depth: 12,
+              layerIds: ['ships-layer'],
+            })
+            const shipRow = rowFromPick(sh[0], filteredShips)
+            if (shipRow) {
+              onEntityClick('ship', shipRow)
+              return true
+            }
+          }
+          if (layers?.planes && api?.pickMultipleObjects) {
+            const ph = api.pickMultipleObjects({
+              x: info.x,
+              y: info.y,
+              radius: 40,
+              depth: 12,
+              layerIds: ['planes-layer'],
+            })
+            const planeRow = rowFromPick(ph[0], filteredPlanes)
+            if (planeRow) {
+              onEntityClick('plane', planeRow)
+              return true
+            }
+          }
+          const row = rowFromPick(info, filteredConflicts)
+          if (!row) return false
+          onEntityClick('conflict', row)
+          return true
+        },
+      })
+    )
+  }
+
+  // Plane layer — on top of heatmaps/scatter so clicks register on the icon
+  if (layers && layers.planes) {
+    deckLayers.push(
+      new IconLayer({
+        id: 'planes-layer',
+        data: filteredPlanes,
+        pickable: true,
+        getIcon: d => getPlaneIcon(d.alt),
+        getPosition: d => [d.lon, d.lat],
+        getSize: 48,
+        getAngle: d => -(d.heading || 0),
+        pickingRadius: 28,
+        onClick: (info) => {
+          if (!onEntityClick) return false
+          const row = rowFromPick(info, filteredPlanes)
+          if (!row) return false
+          onEntityClick('plane', row)
+          return true
+        },
+        billboard: false,
+      })
+    )
+  }
+
+  // Ship layer — last so it wins over events/conflicts when layers overlap
+  if (layers && layers.ships) {
+    deckLayers.push(
+      new IconLayer({
+        id: 'ships-layer',
+        data: filteredShips,
+        pickable: true,
+        getIcon: d => getShipIcon(d.ship_type),
+        getPosition: d => [d.lon, d.lat],
+        getSize: 48,
+        getAngle: d => -(d.heading || 0),
+        pickingRadius: 28,
+        onClick: (info) => {
+          if (!onEntityClick) return false
+          const row = rowFromPick(info, filteredShips)
+          if (!row) return false
+          onEntityClick('ship', row)
+          return true
+        },
+        billboard: false,
       })
     )
   }
@@ -230,11 +321,14 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady }) {
   return (
     <div className="globe-container">
       <DeckGL
+        ref={deckRef}
         views={new GlobeView({ id: 'globe' })}
         viewState={viewState}
         onViewStateChange={({ viewState: vs }) => setViewState(vs)}
         controller={true}
         layers={deckLayers}
+        pickingRadius={36}
+        onClick={handleDeckClick}
       />
       <div className="globe-info">
         <span>Planes: {filteredPlanes.length === planes.length ? planes.length : `${filteredPlanes.length} / ${planes.length}`}</span>
