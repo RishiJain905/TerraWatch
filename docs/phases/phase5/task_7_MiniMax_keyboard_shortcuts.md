@@ -4,6 +4,14 @@
 
 Read `frontend/src/App.jsx` and `frontend/src/components/Globe/Globe.jsx` first.
 
+## UI / UX baseline (Gotham — read before implementing)
+
+Shortcuts are **behavioral** — they rarely need new chrome — but any **on-screen hint** (future help popover) must use the same tokens and typography as the sidebar (`--mono` micro-caps, `--text-2` labels, `--line` borders).
+
+- **Focus safety:** Ignore shortcuts when the user is typing in **`INPUT`**, **`TEXTAREA`**, **`SELECT`**, or **`[contenteditable="true"]`**. Also ignore when the target is inside `[role="combobox"]` / ARIA listbox patterns if the app adds them later.
+- **Globe integration:** `rotateGlobe` / `zoomGlobe` / `resetView` should live with `viewState` ownership (typically `Globe.jsx`). `App.jsx` should call into Globe via a **stable ref** (`useImperativeHandle`) or a small set of callback props — avoid duplicating `INITIAL_VIEW_STATE` in two files unless one re-exports the other.
+- **Layer toggles:** Number-key toggles must stay consistent with the Sidebar’s layer ON/OFF state and the `layers` prop passed into `Globe` (no desync between keyboard and visible toggles).
+
 ## Goal
 
 Add keyboard navigation shortcuts to the globe:
@@ -24,8 +32,15 @@ Add a `useEffect` in `App.jsx` that listens for keydown events:
 ```javascript
 useEffect(() => {
   const handleKeyDown = (e) => {
-    // Ignore if user is typing in an input
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+    const t = e.target
+    if (
+      t.tagName === 'INPUT' ||
+      t.tagName === 'TEXTAREA' ||
+      t.tagName === 'SELECT' ||
+      t.isContentEditable
+    ) {
+      return
+    }
 
     switch (e.key) {
       case 'Escape':
@@ -36,27 +51,27 @@ useEffect(() => {
         break
       case 'r':
       case 'R':
-        // Reset view — pass through via a callback prop
-        onResetView?.()
+        // Reset view — call into Globe via ref or callback
+        globeApiRef.current?.resetView?.()
         break
       case 'ArrowLeft':
-        rotateGlobe(-15, 0)
+        globeApiRef.current?.rotateGlobe?.(-15, 0)
         break
       case 'ArrowRight':
-        rotateGlobe(15, 0)
+        globeApiRef.current?.rotateGlobe?.(15, 0)
         break
       case 'ArrowUp':
-        rotateGlobe(0, 5)
+        globeApiRef.current?.rotateGlobe?.(0, 5)
         break
       case 'ArrowDown':
-        rotateGlobe(0, -5)
+        globeApiRef.current?.rotateGlobe?.(0, -5)
         break
       case '+':
       case '=':
-        zoomGlobe(1)
+        globeApiRef.current?.zoomGlobe?.(1)
         break
       case '-':
-        zoomGlobe(-1)
+        globeApiRef.current?.zoomGlobe?.(-1)
         break
       case '1':
         toggleLayer('planes')
@@ -80,7 +95,7 @@ useEffect(() => {
 
 ### Globe Rotation
 
-Expose `rotateGlobe` and `zoomGlobe` from `Globe.jsx` via a ref or callback prop. These modify the `viewState`:
+Expose `rotateGlobe` and `zoomGlobe` from `Globe.jsx` via ref (`forwardRef` + `useImperativeHandle`) or callback props. These modify the `viewState`:
 
 ```javascript
 const rotateGlobe = (dBearing, dPitch) => {
@@ -99,16 +114,18 @@ const zoomGlobe = (dZoom) => {
 }
 ```
 
+**GlobeView note:** If the production globe keeps `pitch` pinned to `0`, arrow up/down may only affect latitude via a deliberate pan model — align implementation with however `GlobeView` + controller interpret `pitch` today.
+
 ## Files to Update
 
-- `frontend/src/App.jsx` — add keyboard event listener
-- `frontend/src/components/Globe/Globe.jsx` — expose rotate/zoom functions
+- `frontend/src/App.jsx` — add keyboard event listener; robust target filtering
+- `frontend/src/components/Globe/Globe.jsx` — expose rotate/zoom/reset APIs consumed by `App`
 
 ## Verification
 
 - [ ] Escape closes open info panels
-- [ ] R resets the view
-- [ ] Arrow keys rotate the globe smoothly
+- [ ] R resets the view (same path as Task 6 reset control)
+- [ ] Arrow keys adjust globe view as designed
 - [ ] +/- zooms in/out
-- [ ] Number keys 1-4 toggle respective layers
-- [ ] Shortcuts don't fire when typing in an input field
+- [ ] Number keys 1–4 toggle respective layers and stay in sync with Sidebar
+- [ ] Shortcuts don't fire when typing in an input field, textarea, select, or contenteditable

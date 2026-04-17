@@ -306,3 +306,109 @@
   flex-shrink: 0;
   box-shadow: 0 0 4px currentColor;
 }
+
+/* ============================================================
+   Map style switcher — top-right basemap HUD (Phase 5 Task 2)
+   Visually mirrors `.globe-info` (panel chrome + bracket corners)
+   and `.layer-toggle` / `.toggle-on` from Sidebar.css (segmented
+   cells + accent fill on active) so the control slots into the
+   existing Gotham grammar without introducing new vocabulary.
+   ============================================================ */
+
+.map-style-switcher {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px 9px;
+  background: rgba(11, 14, 20, 0.92);
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* Bracket accents — same geometry as .globe-info / .globe-legend.
+   Top-left uses accent-air (amber) and bottom-right uses accent-sea
+   (cyan) so the two corners harmonize with the rest of the HUD. */
+.map-style-switcher::before,
+.map-style-switcher::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+}
+
+.map-style-switcher::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1px solid var(--accent-air);
+  border-left: 1px solid var(--accent-air);
+}
+
+.map-style-switcher::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 1px solid var(--accent-sea);
+  border-right: 1px solid var(--accent-sea);
+}
+
+.map-style-switcher-label {
+  font-family: var(--sans);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.map-style-switcher-cells {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--bg-1);
+}
+
+.mss-cell {
+  padding: 6px 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-2);
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--line);
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.mss-cell:last-child {
+  border-right: none;
+}
+
+.mss-cell:hover {
+  background: var(--bg-2);
+  color: var(--text-0);
+}
+
+.mss-cell.active {
+  background: var(--accent-air);
+  color: var(--bg-0);
+  box-shadow: 0 0 8px rgba(232, 184, 74, 0.45);
+}
+
+.mss-cell.active:hover {
+  background: var(--accent-air);
+  color: var(--bg-0);
+}

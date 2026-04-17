@@ -14,6 +14,24 @@ Before any implementation, read:
 - `frontend/src/components/Sidebar/Sidebar.jsx` — current sidebar
 - `frontend/src/hooks/usePlanes.js` — plane state management
 - `frontend/src/hooks/useShips.js` — ship state management
+- `frontend/src/index.css` — **Gotham** design tokens (`--bg-*`, `--line*`, `--text-*`, `--accent-*`, `--mono`, `--sans`)
+- `frontend/src/components/Globe/Globe.css` — globe HUD (stat strip, legend, basemap control, atmosphere)
+- `frontend/src/components/Sidebar/Sidebar.css` — sidebar command-panel layout (layer rows, filters, toggles)
+- `frontend/src/components/InfoPanel/infoPanel.css` — shared bracket-card chrome for plane/ship-style info panels
+
+---
+
+## UI / UX baseline (Gotham command panel)
+
+Phase 5 polish must match the **Gotham GEOINT** UI shipped across the frontend: dark layered surfaces, `1px` borders using `var(--line)` / `var(--line-strong)`, corner bracket accents on HUD cards, `backdrop-filter: blur(12px)` on floating panels, **IBM Plex** via `--sans` / `--mono`, and accent colors (`--accent-air`, `--accent-sea`, etc.) for semantic emphasis — not ad-hoc grays or generic Material-style pills.
+
+**Globe HUD:** New controls (minimap, reset view, etc.) should reuse the same visual grammar as `.globe-info`, `.globe-legend`, and **Task 2** `.map-style-switcher` (top-right basemap strip): `rgba(11, 14, 20, 0.92)` panels, `2px` border radius (square HUD geometry), mono micro-labels where appropriate.
+
+**Sidebar:** Layer toggles, filters, and future freshness rows follow `.layer-item`, `.filter-panel`, and `.layer-toggle` patterns from `Sidebar.css`.
+
+**Info panels:** Rows, labels, close control, and copy/link affordances should extend `infoPanel.css` rather than inventing parallel styles.
+
+Respect **`prefers-reduced-motion`** (`index.css`) for any new motion.
 
 ---
 
@@ -45,7 +63,7 @@ Before any implementation, read:
 | # | Task | Description | Agent |
 |---|------|-------------|-------|
 | 1 | Terminator line + starfield + atmosphere | Day/night boundary great circle, star sphere background, atmospheric rim glow | GLM |
-| 2 | Map style switcher | Tile provider dropdown: dark satellite, dark vector, light, night city lights | GLM |
+| 2 | Map style switcher | **Done** — Top-right **segmented basemap HUD** (four cells: SAT / VEC / LITE / NIGHT), `MAP_STYLES` tile URLs, `localStorage` persistence, night-lights overlay `TileLayer`; Gotham chrome matching sidebar toggles | GLM |
 | 3 | Minimap/navigator inset | Small globe in corner showing current view position | GLM |
 
 ### Data Trails
@@ -60,7 +78,7 @@ Before any implementation, read:
 | # | Task | Description | Agent |
 |---|------|-------------|-------|
 | 6 | Fly-to + reset view | Smooth transition to clicked entity + reset/home button | GLM |
-| 7 | Keyboard shortcuts | Arrow keys rotate, +/– zoom, E escape close panel, R reset | MiniMax |
+| 7 | Keyboard shortcuts | Arrow keys rotate, +/– zoom, Escape closes panel, R reset | MiniMax |
 
 ### Data Quality
 
@@ -86,10 +104,10 @@ Before any implementation, read:
 frontend/src/
 ├── components/
 │   ├── Globe/
-│   │   ├── Globe.jsx         UPDATE — add terminator, starfield, atmosphere, fly-to, trails
-│   │   ├── Globe.css         UPDATE — atmosphere glow, minimap position
+│   │   ├── Globe.jsx         UPDATE — terminator, starfield, atmosphere, basemap state, fly-to, trails, minimap
+│   │   ├── Globe.css         UPDATE — HUD chrome (info, legend, basemap switcher, atmosphere, minimap)
 │   │   ├── Minimap.jsx       NEW — small globe navigator inset
-│   │   └── MapStyleSwitcher.jsx  NEW — tile provider dropdown
+│   │   └── MapStyleSwitcher.jsx  SHIPPED (Task 2) — segmented basemap control + MAP_STYLES
 │   ├── Sidebar/
 │   │   └── Sidebar.jsx       UPDATE — freshness indicators, empty states
 │   └── InfoPanels/
@@ -101,7 +119,8 @@ frontend/src/
 │   ├── usePlanes.js          UPDATE — add trail positions, stale detection
 │   └── useShips.js           UPDATE — add trail positions, stale detection
 └── utils/
-    ├── terminator.js         NEW — solar position calculation for day/night line
+    ├── terminator.js         SHIPPED (Task 1) — twilight / solar helpers for terminator bitmap
+    ├── starfield.js          SHIPPED (Task 1) — procedural starfield data URL
     └── formatters.js         UPDATE — add relativeTime(), add copyToClipboard()
 
 backend/
@@ -115,33 +134,31 @@ backend/
 
 ### Terminator Line (Day/Night Boundary)
 
-The terminator is the great circle separating day and night. Calculate using solar position:
-- Sun's declination based on day of year
-- Solar right ascension from UTC time
-- Convert to lat/lon points forming the terminator polygon
-- Render as a `PolygonLayer` with night-side semi-transparent dark fill, day-side invisible
-
-Reference: `suncalc` library or manual calculation via NOAA solar equations.
+The terminator is the great circle separating day and night (solar position: declination, subsolar longitude, etc.). **Shipped implementation** (Task 1) uses a high-level approach documented in `docs/phases/phase5/P5-task1-done.md` and `frontend/src/utils/terminator.js` — defer to `Globe.jsx` rather than early sketch layers. Original polygon/sphere sketches in older docs are non-normative.
 
 ### Starfield
 
-A large sphere (radius >> globe radius) with a star texture, rendered behind the globe. Use a `SphereLayer` with a procedural star image or white dots on black.
+**Shipped:** procedural starfield behind the globe (see `frontend/src/utils/starfield.js` and `Globe.css`). Early `SphereLayer` sketches are non-normative.
 
 ### Atmospheric Glow
 
-Post-processing or a slightly larger transparent sphere with rim gradient shader. deck.gl's `GlobeView` can use custom shaders or an additional `PolygonLayer` with radial gradient fill at globe edges.
+**Shipped:** viewport-tracked rim/haze aligned to the on-screen globe radius (see `Globe.jsx` + `Globe.css`). Early fixed-oval or extra-`PolygonLayer` sketches are non-normative.
 
-### Map Style Switcher
+### Map style switcher (Task 2 — shipped)
 
-Tile provider presets:
-- **Dark Satellite**: `https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png` (current)
+**UI:** Top-right **segmented basemap HUD** (four visible cells, Gotham styling aligned with `.layer-toggle` / globe HUD — not a stock HTML `<select>` or anonymous cycle button). Compact cell labels (`SAT`, `VEC`, `LITE`, `NIGHT`) with full names in tooltips / `aria-label`.
+
+**Data:** `MAP_STYLES` in `MapStyleSwitcher.jsx` — four providers:
+- **Dark Satellite**: `https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png`
 - **Dark Vector**: `https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}.png`
 - **Light**: `https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}.png`
-- **Night Lights**: `https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png` with city lights overlay via separate WMS
+- **Night Lights**: same Carto dark base plus **Stadia nightlights** overlay tiles (`https://tiles.stadiamaps.com/tiles/nightlights/{z}/{x}/{y}.png`) as a sibling `TileLayer` (tiled overlay, not a single full-globe `BitmapLayer`)
+
+**State:** Selected style key persisted in `localStorage` (`terrawatch.mapStyle`). Main `Globe.jsx` `TileLayer` uses style-dependent `id` (`base-tiles-${mapStyle}`) so tile caches swap cleanly when the provider changes.
 
 ### Minimap
 
-A second `GlobeView` in a small `<div>` absolutely positioned in the corner. Shows a simplified view of the full globe with a "you are here" indicator (small rectangle or dot for current view center). Synchronize view rotation to main globe or show fixed north-up orientation.
+A second `GlobeView` in a small `<div>` absolutely positioned (typically **bottom-right**, clearing `.globe-info` and **not** overlapping the top-right basemap control). Shows a simplified view with a view-center indicator; **north-up** inset is the usual pattern. **Basemap tiles should match the active `MAP_STYLES` entry** (same URLs as the main globe). See `docs/phases/phase5/task_3_GLM_minimap.md`.
 
 ### Flight/Ship Trails
 
@@ -162,7 +179,7 @@ Each hook tracks `lastUpdated` timestamp. Sidebar shows "Live" or "Xs ago" per l
 - [ ] Terminator line accurately separates day/night on globe
 - [ ] Starfield visible in space behind globe
 - [ ] Atmospheric glow visible at globe edges
-- [ ] Map style switcher cycles through all 4 tile styles
+- [x] Map style switcher: all four basemap styles selectable; tiles update immediately; selection persists across reload; night lights requests both basemap and `nightlights` tiles (Task 2)
 - [ ] Minimap shows current view position
 - [ ] Clicking a plane smoothly flies to its position
 - [ ] Flight trail renders for selected plane

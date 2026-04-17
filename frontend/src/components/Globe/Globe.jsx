@@ -13,7 +13,13 @@ import { usePlanes } from '../../hooks/usePlanes'
 import { useShips } from '../../hooks/useShips'
 import { useEvents } from '../../hooks/useEvents'
 import { useConflicts } from '../../hooks/useConflicts'
+import MapStyleSwitcher, { MAP_STYLES } from './MapStyleSwitcher'
 import './Globe.css'
+
+// localStorage key for the currently-selected basemap style. Namespaced with
+// the app prefix so it can't collide with any other site on the same origin.
+const MAP_STYLE_STORAGE_KEY = 'terrawatch.mapStyle'
+const DEFAULT_MAP_STYLE = 'dark_satellite'
 
 // Terminator texture is recomputed once per minute; the sun moves ~0.25°
 // across the sky in that window, well below a single pixel at 720×360.
@@ -44,6 +50,31 @@ function rowFromPick(info, dataArray) {
 export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFiltersChange }) {
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE)
   const deckRef = useRef(null)
+
+  // Map basemap style — hydrated from localStorage on mount so the user's
+  // last choice survives a page reload (spec verification item 3). The
+  // validation check against MAP_STYLES guards against stale keys left
+  // behind by a previous build that exposed different style ids.
+  const [mapStyle, setMapStyle] = useState(() => {
+    if (typeof window === 'undefined') return DEFAULT_MAP_STYLE
+    try {
+      const saved = window.localStorage?.getItem(MAP_STYLE_STORAGE_KEY)
+      return saved && MAP_STYLES[saved] ? saved : DEFAULT_MAP_STYLE
+    } catch (_) {
+      // localStorage can throw in private-browsing / sandboxed contexts;
+      // fall back to the default rather than crashing the whole Globe.
+      return DEFAULT_MAP_STYLE
+    }
+  })
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      window.localStorage?.setItem(MAP_STYLE_STORAGE_KEY, mapStyle)
+    } catch (_) {
+      // Silently ignore quota / access errors — persistence is best-effort,
+      // the control still functions for the current session.
+    }
+  }, [mapStyle])
 
   // Starfield URL is generated exactly once per page load.
   const starfieldUrl = useMemo(() => getStarfieldDataUrl(), [])
@@ -253,10 +284,15 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFil
     [onEntityClick, layers, filteredShips, filteredPlanes],
   )
 
-  // Tile layer for dark basemap rendered on the globe
+  // Tile layer for the selected basemap provider. The layer `id` is
+  // interpolated with `mapStyle` so deck.gl treats a provider change as a
+  // distinct layer instance (forcing a clean tile-cache swap). Without the
+  // id bump, deck.gl briefly reuses the previous provider's cached tiles
+  // after the URL changes — a visible flash of the wrong basemap.
+  const activeStyle = MAP_STYLES[mapStyle] ?? MAP_STYLES[DEFAULT_MAP_STYLE]
   const tileLayer = new TileLayer({
-    id: 'base-tiles',
-    data: 'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+    id: `base-tiles-${mapStyle}`,
+    data: activeStyle.url,
     minZoom: 0,
     maxZoom: 10,
     tileSize: 256,
@@ -270,6 +306,34 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFil
       })
     },
   })
+
+  // Optional overlay tile layer — used by the Night Lights style to paint
+  // city-lights over the dark basemap. The spec's phrasing ("a second
+  // BitmapLayer with the overlay URL") was written before this codebase
+  // moved to tiled providers; a bare BitmapLayer can't consume a
+  // {z}/{x}/{y} tile scheme, so a sibling TileLayer is required to get
+  // lazy loading + caching + LOD. Draw order (below) keeps the overlay
+  // above the basemap tiles but under the terminator raster so the
+  // night-side dim still tints it.
+  const overlayTileLayer = activeStyle.overlay
+    ? new TileLayer({
+        id: `base-tiles-overlay-${mapStyle}`,
+        data: activeStyle.overlay,
+        minZoom: 0,
+        maxZoom: 10,
+        tileSize: 256,
+        pickable: false,
+        opacity: 0.85,
+        renderSubLayers: (props) => {
+          const { boundingBox } = props.tile
+          return new BitmapLayer(props, {
+            data: undefined,
+            image: props.data,
+            bounds: [boundingBox[0][0], boundingBox[0][1], boundingBox[1][0], boundingBox[1][1]],
+          })
+        },
+      })
+    : null
 
   // Fill the unsupported Web Mercator polar gap with geometry instead of a
   // full-globe BitmapLayer. deck.gl has open GlobeView bitmap distortion bugs
@@ -315,7 +379,14 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFil
 
   // Build deck.gl layers (draw order: first = bottom). Ships/planes must be LAST so they
   // render on top and win picking — otherwise ScatterplotLayers steal clicks from vessels.
-  const deckLayers = [polarCapLayer, tileLayer, terminatorLayer]
+  // The optional overlay sits between the basemap tiles and the terminator so it
+  // still gets the night-side dim applied on top.
+  const deckLayers = [
+    polarCapLayer,
+    tileLayer,
+    ...(overlayTileLayer ? [overlayTileLayer] : []),
+    terminatorLayer,
+  ]
 
   // GDELT Events — under vessels for picking priority
   if (layers && layers.events) {
@@ -534,6 +605,7 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFil
           <rect width="100%" height="100%" fill="url(#atmosphere-rim)" />
         </svg>
       )}
+      <MapStyleSwitcher currentStyle={mapStyle} onChange={setMapStyle} />
       <div className="globe-info">
         <span><span className="stat-label">Planes</span><span className="stat-value">{filteredPlanes.length === planes.length ? planes.length.toLocaleString() : `${filteredPlanes.length.toLocaleString()} / ${planes.length.toLocaleString()}`}</span></span>
         <span><span className="stat-label">Ships</span><span className="stat-value">{filteredShips.length === ships.length ? ships.length.toLocaleString() : `${filteredShips.length.toLocaleString()} / ${ships.length.toLocaleString()}`}</span></span>

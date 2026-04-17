@@ -2,7 +2,16 @@
 
 ## Context
 
-Read `frontend/src/components/Globe/Globe.jsx`, `frontend/src/App.jsx`, and `frontend/src/index.css`.
+Read `frontend/src/components/Globe/Globe.jsx`, `frontend/src/App.jsx`, `frontend/src/index.css`, and `frontend/src/components/Sidebar/Sidebar.css`.
+
+## UI / UX baseline (Gotham — read before implementing)
+
+Replace neon spinners and light-theme skeleton gradients from the old sketch with **token-driven** loading surfaces.
+
+- **Colors:** Overlays use `var(--bg-0)` / `var(--bg-1)` with alpha, bordered by `var(--line)` / `var(--line-strong)` — not raw `rgba(10,10,20)` / `#64c8ff` unless mapped to a token (`--accent-sea` can drive a spinner stroke if a spinner is kept).
+- **Skeleton shimmer:** Animate between `var(--line-soft)` and `var(--line-strong)` (or a subtle horizontal gradient using those stops) instead of bright white bands on dark gray.
+- **Typography:** Loading copy uses `var(--mono)` or `var(--sans)` in the same micro-caps / letter-spacing regime as `.sidebar-header-meta` (`10px`, uppercase, `var(--text-2)`).
+- **Motion:** Reuse global `prefers-reduced-motion` behavior — if skeletons animate, provide a static fallback when reduced motion is requested.
 
 ## Goal
 
@@ -44,29 +53,35 @@ While not all layers are loaded, show a centered skeleton overlay:
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(10, 10, 20, 0.7);
+  background: color-mix(in srgb, var(--bg-0) 75%, transparent);
   z-index: 100;
 }
 
 .globe-loading-spinner {
-  width: 60px;
-  height: 60px;
-  border: 3px solid rgba(255, 255, 255, 0.1);
-  border-top-color: #64c8ff;
+  width: 40px;
+  height: 40px;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent-sea);
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: globeSpin 0.9s linear infinite;
 }
 
 .globe-loading-text {
-  margin-top: 16px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 14px;
+  margin-top: 14px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--text-2);
 }
 
-@keyframes spin {
+@keyframes globeSpin {
   to { transform: rotate(360deg); }
 }
 ```
+
+If `color-mix` is undesirable for browser support targets, use `rgba(11, 14, 20, 0.85)` which matches the HUD panels.
 
 Show layer-specific loading status:
 - "Loading aircraft..." when planes not yet loaded
@@ -75,29 +90,36 @@ Show layer-specific loading status:
 ### Sidebar Skeleton
 
 The sidebar can show skeleton lines in the layer count area while data is loading:
-- A pulsing gray bar instead of the layer count numbers
-- Same pulsing animation as the globe skeleton
+- A pulsing bar using **`var(--line-soft)` → `var(--line-strong)`** instead of high-contrast white shimmer
+- Same vertical rhythm as `.layer-count` / `.count-filtered`
 
 ```css
 .skeleton-line {
-  height: 14px;
-  background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%);
+  height: 12px;
+  background: linear-gradient(
+    90deg,
+    var(--line-soft) 25%,
+    var(--line-strong) 50%,
+    var(--line-soft) 75%
+  );
   background-size: 200% 100%;
   animation: skeleton-pulse 1.5s ease-in-out infinite;
-  border-radius: 4px;
+  border-radius: 2px;
 }
 ```
 
 ## Files to Update
 
 - `frontend/src/components/Globe/Globe.jsx` — add loading state tracking and skeleton overlay
-- `frontend/src/components/Globe/Globe.css` — skeleton and spinner styles
-- `frontend/src/components/Sidebar/Sidebar.css` — sidebar skeleton styles
+- `frontend/src/components/Globe/Globe.css` — skeleton and overlay styles (token-driven)
+- `frontend/src/components/Sidebar/Sidebar.css` — sidebar skeleton styles (token-driven)
+- `frontend/src/components/Sidebar/Sidebar.jsx` — wire skeleton visibility to the same loaded signals
 
 ## Verification
 
 - [ ] Skeleton overlay appears while initial data loads
-- [ ] Layer-specific loading text shown
-- [ ] Skeleton disappears once all layers have data
-- [ ] Globe and sidebar skeletons use consistent animation
+- [ ] Layer-specific loading text shown (Gotham typography)
+- [ ] Skeleton disappears once all layers have data (per chosen loaded heuristic)
+- [ ] Globe and sidebar skeletons use consistent animation and **design tokens**
 - [ ] No flash of empty content during initial load
+- [ ] Reduced-motion: animation degrades gracefully per global CSS rules
