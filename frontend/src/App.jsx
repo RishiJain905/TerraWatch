@@ -82,6 +82,7 @@ function App() {
             onEntityClick={handleEntityClick}
             onFilterHooksReady={handleFilterHooksReady}
             onFiltersChange={bumpSidebarForFilters}
+            selectedPlane={selectedPlane}
           />
           {selectedPlane && (
             <PlaneInfoPanel

@@ -13,6 +13,8 @@ export const INITIAL_VIEW_STATE = {
   bearing: 0,
 }
 
+export const TRAIL_MAX_POINTS = 20
+
 export const REFRESH_INTERVALS = {
   planes: 30000,    // 30 seconds
   ships: 60000,    // 60 seconds

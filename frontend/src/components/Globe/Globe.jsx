@@ -8,6 +8,7 @@ import { getShipIcon, SHIP_TYPE_COLORS } from '../../utils/shipIcons'
 import { buildTerminatorImage } from '../../utils/terminator'
 import { buildPolarCapData } from '../../utils/polarCaps'
 import { getStarfieldDataUrl } from '../../utils/starfield'
+import { buildPlaneTrailPath } from './planeTrail'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import { usePlanes } from '../../hooks/usePlanes'
 import { useShips } from '../../hooks/useShips'
@@ -48,7 +49,7 @@ function rowFromPick(info, dataArray) {
   return info.object ?? (info.index >= 0 ? dataArray[info.index] : null)
 }
 
-export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFiltersChange }) {
+export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFiltersChange, selectedPlane }) {
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE)
   const deckRef = useRef(null)
 
@@ -190,8 +191,12 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFil
   }, [updateAtmosphere])
   const { events, filteredEvents, addEvents, filters: eventsFilters, updateFilter: eventsUpdateFilter } = useEvents()
   const { conflicts, filteredConflicts, addConflicts, filters: conflictsFilters, updateFilter: conflictsUpdateFilter } = useConflicts()
-  const { planes, filteredPlanes, addPlane, addPlanes, removePlane, filters: planesFilters, updateFilter: planesUpdateFilter } = usePlanes()
+  const { planes, filteredPlanes, addPlane, addPlanes, removePlane, filters: planesFilters, updateFilter: planesUpdateFilter, trailStoreRef } = usePlanes(selectedPlane?.id)
   const { ships, filteredShips, addShip, addShips, removeShip, filters: shipsFilters, updateFilter: shipsUpdateFilter } = useShips()
+  const liveSelectedPlane = useMemo(() => {
+    if (!selectedPlane?.id) return null
+    return planes.find(plane => plane.id === selectedPlane.id) ?? selectedPlane
+  }, [planes, selectedPlane])
 
   // Expose filter controls to parent via a ref-based stable interface.
   // The ref always holds the latest counts/filters without triggering re-renders
@@ -392,6 +397,35 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFil
     terminatorLayer,
   ]
 
+  const planeTrailPath = buildPlaneTrailPath(
+    trailStoreRef?.current?.[liveSelectedPlane?.id] ?? [],
+    liveSelectedPlane
+  )
+  const projectedTrailPath = []
+  if (planeTrailPath.length > 1 && atmosphere.ready) {
+    try {
+      const viewport = deckRef.current?.deck?.getViewports?.()[0]
+      if (viewport) {
+        const maxVisibleRadius = atmosphere.r * 1.02
+        for (const position of planeTrailPath) {
+          const projected = viewport.project(position)
+          if (!Number.isFinite(projected[0]) || !Number.isFinite(projected[1])) {
+            continue
+          }
+
+          const visible = Math.hypot(projected[0] - atmosphere.cx, projected[1] - atmosphere.cy) <= maxVisibleRadius
+          if (!visible) {
+            continue
+          }
+
+          projectedTrailPath.push(`${projected[0]},${projected[1]}`)
+        }
+      }
+    } catch (_) {
+      // Viewport projection can throw during init or rapid camera changes.
+    }
+  }
+
   // GDELT Events — under vessels for picking priority
   if (layers && layers.events) {
     deckLayers.push(
@@ -570,6 +604,18 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFil
         pickingRadius={36}
         onClick={handleDeckClick}
       />
+      {projectedTrailPath.length > 1 && (
+        <svg
+          className="plane-trail-overlay"
+          aria-hidden="true"
+          preserveAspectRatio="none"
+        >
+          <polyline
+            points={projectedTrailPath.join(' ')}
+            className="plane-trail-path"
+          />
+        </svg>
+      )}
       {atmosphere.ready && (
         <svg
           className="atmosphere-overlay"

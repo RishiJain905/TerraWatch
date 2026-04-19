@@ -17,7 +17,7 @@ TerraWatch provides real-time situational awareness of global mobility — who i
 Unlike expensive enterprise platforms, TerraWatch runs entirely in your browser using free APIs.
 
 **Core Features:**
-- Real-time aircraft tracking via ADS-B (OpenSky Network + adsb.lol — global, ~12,000+ aircraft)
+- Real-time aircraft tracking via ADS-B (OpenSky global + optional ADSB.lol regional augmentation)
 - Real-time maritime vessel tracking via AIS (aisstream.io — global coverage)
 - World event monitoring (GDELT) — V2 (live)
 - Conflict zone visualization (GDELT violent events + conflict heatmap) — V2 (live)
@@ -62,7 +62,7 @@ graph TB
 flowchart LR
     A["OpenSky Network + adsb.lol API
 opensky-network.org/api/states/all
-api.adsb.lol/aircraft/json"] --> B["adsb_service.fetch_planes()
+api.adsb.lol/v2/point/{lat}/{lon}/{radius}"] --> B["adsb_service.fetch_planes()
 AsyncIO + httpx + gzip"]
     B --> C["SQLite planes table
 Upsert + stale cleanup (5 min)"]
@@ -106,7 +106,7 @@ Mutually exclusive w/ plane panel"]
 | Phase | Name | Status | Key Deliverables |
 |-------|------|--------|------------------|
 | 1 | Foundation Setup | Complete | FastAPI backend, React + deck.gl frontend, Docker Compose, REST API + WebSocket pipeline |
-| 2 | Live Aircraft Tracking | Complete | OpenSky + adsb.lol integration (~12,000+ aircraft), 30s refresh, directional icons, PlaneInfoPanel |
+| 2 | Live Aircraft Tracking | Complete | OpenSky integration + optional ADSB.lol regional augmentation, 30s refresh, directional icons, PlaneInfoPanel |
 | 3 | Live Ship Tracking | Complete | aisstream.io WebSocket integration (global coverage), real-time streaming, type-colored icons, ShipInfoPanel |
 | 4 | Events & Conflicts | Complete | GDELT world events, conflict heatmap, event/conflict filtering, ACLED integration |
 | 5 | Visual Enhancements | Complete | Solar terminator line, starfield background, atmospheric rim glow |
@@ -121,7 +121,7 @@ Mutually exclusive w/ plane panel"]
 
 ### Phase 2 — Live Aircraft Tracking
 
-- OpenSky Network + adsb.lol API integration (~12,000+ aircraft)
+- OpenSky Network integration with optional ADSB.lol regional augmentation
 - Background scheduler (30s refresh)
 - WebSocket broadcast to all connected clients
 - Directional plane icons on globe, color-coded by altitude
@@ -156,6 +156,7 @@ cd TerraWatch
 cp .env.example docker/.env
 # Edit docker/.env — add your aisstream.io key (required for ship tracking)
 # OpenSky credentials are optional but recommended for higher rate limits
+# ADSB.lol is optional and now uses regional v2 point queries if configured
 # See .env.example for all available variables
 
 # Start both backend and frontend
@@ -211,7 +212,8 @@ cd backend
 # Create virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
-
+or 
+source .venv/Scripts/activate
 # Install dependencies
 pip install -r requirements.txt
 
@@ -412,7 +414,7 @@ Example ship_batch message:
 | Source | Type | Coverage | Auth | Status |
 |--------|------|----------|------|--------|
 | [OpenSky Network](https://opensky-network.org/api/states/all) | Aircraft (ADS-B) | Global (~12,000+ aircraft) | OAuth2 (optional) | Live |
-| [adsb.lol](https://api.adsb.lol/) | Aircraft (ADS-B) | Global | None | Live |
+| [adsb.lol](https://api.adsb.lol/) | Aircraft (ADS-B) | Public regional v2 API, feeder-only full API | None for public API | Live |
 | [aisstream.io](https://aisstream.io/) | Ships (AIS) | Global (real-time WebSocket) | API Key (free) | Live |
 | [GDELT Project](https://www.gdeltproject.org/) | World Events | Global | None | Live |
 

@@ -12,7 +12,8 @@ import httpx
 from app.config import settings
 from app.core.models import Plane, utc_now_iso
 
-ADSBLOL_AIRCRAFT_API = settings.ADSBLOL_API_URL
+LEGACY_ADSBLOL_AIRCRAFT_API = "https://api.adsb.lol/aircraft/json"
+ADSBLOL_AIRCRAFT_API = settings.ADSBLOL_API_URL or LEGACY_ADSBLOL_AIRCRAFT_API
 HTTP_TIMEOUT_SECONDS = 10.0
 HTTP_HEADERS = {
     "Accept-Encoding": "gzip",
@@ -20,6 +21,44 @@ HTTP_HEADERS = {
 }
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_url(url: str | None) -> str:
+    return str(url or "").strip().rstrip("/")
+
+
+def _is_legacy_global_url(url: str | None) -> bool:
+    return _normalize_url(url) == LEGACY_ADSBLOL_AIRCRAFT_API
+
+
+def _build_point_url(base_url: str, lat: float, lon: float, radius_nm: int) -> str:
+    return f"{_normalize_url(base_url)}/v2/point/{lat}/{lon}/{radius_nm}"
+
+
+def _resolve_api_url(
+    api_url: str | None,
+    *,
+    base_url: str,
+    query_lat: float | None,
+    query_lon: float | None,
+    query_radius_nm: int | None,
+) -> str | None:
+    explicit_url = _normalize_url(api_url)
+    has_point_query = (
+        query_lat is not None
+        and query_lon is not None
+        and query_radius_nm is not None
+    )
+
+    if has_point_query:
+        if not explicit_url or _is_legacy_global_url(explicit_url):
+            return _build_point_url(base_url, query_lat, query_lon, query_radius_nm)
+        return explicit_url
+
+    if explicit_url and not _is_legacy_global_url(explicit_url):
+        return explicit_url
+
+    return None
 
 
 def normalize_hex(hex_str: str) -> str:
@@ -77,6 +116,10 @@ def _timestamp_to_iso(value: Any) -> str | None:
     numeric_timestamp = _safe_float(value)
     if numeric_timestamp is None:
         return None
+
+    # ADSB.lol v2 public API uses millisecond epoch timestamps for ctime/now.
+    if abs(numeric_timestamp) >= 1_000_000_000_000:
+        numeric_timestamp /= 1000.0
 
     try:
         return datetime.fromtimestamp(numeric_timestamp, tz=timezone.utc).isoformat()
@@ -142,28 +185,63 @@ class AdsblolService:
     def __init__(
         self,
         api_url: str | None = None,
+        *,
+        base_url: str | None = None,
+        query_lat: float | None = None,
+        query_lon: float | None = None,
+        query_radius_nm: int | None = None,
         timeout_seconds: float = HTTP_TIMEOUT_SECONDS,
     ) -> None:
-        self.api_url = api_url or ADSBLOL_AIRCRAFT_API
+        self.api_url = api_url if api_url is not None else settings.ADSBLOL_API_URL
+        self.base_url = base_url or settings.ADSBLOL_BASE_URL
+        self.query_lat = settings.ADSBLOL_LAT if query_lat is None else query_lat
+        self.query_lon = settings.ADSBLOL_LON if query_lon is None else query_lon
+        self.query_radius_nm = (
+            settings.ADSBLOL_RADIUS_NM if query_radius_nm is None else query_radius_nm
+        )
         self.timeout_seconds = timeout_seconds
 
     async def fetch_planes(self) -> List[dict]:
+        resolved_api_url = _resolve_api_url(
+            self.api_url,
+            base_url=self.base_url,
+            query_lat=self.query_lat,
+            query_lon=self.query_lon,
+            query_radius_nm=self.query_radius_nm,
+        )
+        if not resolved_api_url:
+            configured_url = _normalize_url(self.api_url)
+            if _is_legacy_global_url(configured_url):
+                logger.warning(
+                    "ADSB.lol public global endpoint %s is no longer available. "
+                    "Configure ADSBLOL_LAT/LON/RADIUS_NM for the public v2 point API, "
+                    "or set ADSBLOL_API_URL to a working endpoint. Skipping ADSB.lol fetch.",
+                    configured_url,
+                )
+            else:
+                logger.info(
+                    "ADSB.lol fetch skipped: no API URL configured. "
+                    "Set ADSBLOL_LAT/LON/RADIUS_NM for the public v2 point API, "
+                    "or ADSBLOL_API_URL for a custom endpoint.",
+                )
+            return []
+
         try:
             async with httpx.AsyncClient(
                 timeout=self.timeout_seconds,
                 headers=HTTP_HEADERS,
             ) as client:
-                response = await client.get(self.api_url)
+                response = await client.get(resolved_api_url)
                 response.raise_for_status()
                 payload = response.json()
         except httpx.TimeoutException as exc:
-            logger.warning("ADSB.lol request timed out for %s: %s", self.api_url, exc)
+            logger.warning("ADSB.lol request timed out for %s: %s", resolved_api_url, exc)
             return []
         except httpx.HTTPError as exc:
-            logger.warning("ADSB.lol request failed for %s: %s", self.api_url, exc)
+            logger.warning("ADSB.lol request failed for %s: %s", resolved_api_url, exc)
             return []
         except ValueError as exc:
-            logger.warning("ADSB.lol response could not be parsed for %s: %s", self.api_url, exc)
+            logger.warning("ADSB.lol response could not be parsed for %s: %s", resolved_api_url, exc)
             return []
 
         if not isinstance(payload, dict):
