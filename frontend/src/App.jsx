@@ -83,6 +83,7 @@ function App() {
             onFilterHooksReady={handleFilterHooksReady}
             onFiltersChange={bumpSidebarForFilters}
             selectedPlane={selectedPlane}
+            selectedShip={selectedShip}
           />
           {selectedPlane && (
             <PlaneInfoPanel

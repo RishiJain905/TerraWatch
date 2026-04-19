@@ -9,6 +9,7 @@ import { buildTerminatorImage } from '../../utils/terminator'
 import { buildPolarCapData } from '../../utils/polarCaps'
 import { getStarfieldDataUrl } from '../../utils/starfield'
 import { buildPlaneTrailPath } from './planeTrail'
+import { buildShipTrailPath } from './shipTrail'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import { usePlanes } from '../../hooks/usePlanes'
 import { useShips } from '../../hooks/useShips'
@@ -49,7 +50,7 @@ function rowFromPick(info, dataArray) {
   return info.object ?? (info.index >= 0 ? dataArray[info.index] : null)
 }
 
-export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFiltersChange, selectedPlane }) {
+export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFiltersChange, selectedPlane, selectedShip }) {
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE)
   const deckRef = useRef(null)
 
@@ -192,11 +193,16 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFil
   const { events, filteredEvents, addEvents, filters: eventsFilters, updateFilter: eventsUpdateFilter } = useEvents()
   const { conflicts, filteredConflicts, addConflicts, filters: conflictsFilters, updateFilter: conflictsUpdateFilter } = useConflicts()
   const { planes, filteredPlanes, addPlane, addPlanes, removePlane, filters: planesFilters, updateFilter: planesUpdateFilter, trailStoreRef } = usePlanes(selectedPlane?.id)
-  const { ships, filteredShips, addShip, addShips, removeShip, filters: shipsFilters, updateFilter: shipsUpdateFilter } = useShips()
+  const { ships, filteredShips, addShip, addShips, removeShip, filters: shipsFilters, updateFilter: shipsUpdateFilter, trailStoreRef: shipTrailStoreRef } = useShips(selectedShip?.id)
   const liveSelectedPlane = useMemo(() => {
     if (!selectedPlane?.id) return null
     return planes.find(plane => plane.id === selectedPlane.id) ?? selectedPlane
   }, [planes, selectedPlane])
+
+  const liveSelectedShip = useMemo(() => {
+    if (!selectedShip?.id) return null
+    return ships.find(ship => ship.id === selectedShip.id) ?? selectedShip
+  }, [ships, selectedShip])
 
   // Expose filter controls to parent via a ref-based stable interface.
   // The ref always holds the latest counts/filters without triggering re-renders
@@ -426,6 +432,33 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFil
     }
   }
 
+  const shipTrailPath = buildShipTrailPath(
+    shipTrailStoreRef?.current?.[liveSelectedShip?.id] ?? [],
+    liveSelectedShip
+  )
+  const projectedShipTrailPath = []
+  if (shipTrailPath.length > 1 && atmosphere.ready) {
+    try {
+      const viewport = deckRef.current?.deck?.getViewports?.()[0]
+      if (viewport) {
+        const maxVisibleRadius = atmosphere.r * 1.02
+        for (const position of shipTrailPath) {
+          const projected = viewport.project(position)
+          if (!Number.isFinite(projected[0]) || !Number.isFinite(projected[1])) {
+            continue
+          }
+          const visible = Math.hypot(projected[0] - atmosphere.cx, projected[1] - atmosphere.cy) <= maxVisibleRadius
+          if (!visible) {
+            continue
+          }
+          projectedShipTrailPath.push(`${projected[0]},${projected[1]}`)
+        }
+      }
+    } catch (_) {
+      // Viewport projection can throw during init or rapid camera changes.
+    }
+  }
+
   // GDELT Events — under vessels for picking priority
   if (layers && layers.events) {
     deckLayers.push(
@@ -613,6 +646,18 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFil
           <polyline
             points={projectedTrailPath.join(' ')}
             className="plane-trail-path"
+          />
+        </svg>
+      )}
+      {projectedShipTrailPath.length > 1 && (
+        <svg
+          className="ship-trail-overlay"
+          aria-hidden="true"
+          preserveAspectRatio="none"
+        >
+          <polyline
+            points={projectedShipTrailPath.join(' ')}
+            className="ship-trail-path"
           />
         </svg>
       )}
