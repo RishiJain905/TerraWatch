@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef, useImperativeHandle, forwardRef } from 'react'
 import DeckGL from '@deck.gl/react'
-import { _GlobeView as GlobeView } from '@deck.gl/core'
+import { _GlobeView as GlobeView, FlyToInterpolator } from '@deck.gl/core'
 import { TileLayer } from '@deck.gl/geo-layers'
 import { IconLayer, BitmapLayer, ScatterplotLayer } from '@deck.gl/layers'
 import { getPlaneIcon } from '../../utils/planeIcons'
@@ -50,8 +50,30 @@ function rowFromPick(info, dataArray) {
   return info.object ?? (info.index >= 0 ? dataArray[info.index] : null)
 }
 
-export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFiltersChange, selectedPlane, selectedShip }) {
+const Globe = forwardRef(function Globe({ layers, onEntityClick, onFilterHooksReady, onFiltersChange, selectedPlane, selectedShip }, ref) {
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE)
+
+  const flyTo = useCallback(({ lon, lat }) => {
+    setViewState({
+      longitude: lon,
+      latitude: lat,
+      zoom: 5,
+      pitch: 0,
+      bearing: 0,
+      transitionDuration: 1000,
+      transitionInterpolator: new FlyToInterpolator(),
+    })
+  }, [])
+
+  const resetView = useCallback(() => {
+    setViewState({
+      ...INITIAL_VIEW_STATE,
+      transitionDuration: 1000,
+      transitionInterpolator: new FlyToInterpolator(),
+    })
+  }, [])
+
+  useImperativeHandle(ref, () => ({ flyTo, resetView }), [flyTo, resetView])
   const deckRef = useRef(null)
 
   // Map basemap style — hydrated from localStorage on mount so the user's
@@ -703,6 +725,15 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFil
       <MapStyleSwitcher currentStyle={mapStyle} onChange={setMapStyle} />
       <button
         type="button"
+        className="reset-view-btn"
+        onClick={resetView}
+        aria-label="Reset globe view"
+        title="Reset view"
+      >
+        RST
+      </button>
+      <button
+        type="button"
         className={`minimap-toggle${showMinimap ? ' minimap-toggle--active' : ''}`}
         onClick={() => setShowMinimap(v => !v)}
         aria-label="Toggle minimap"
@@ -746,4 +777,6 @@ export default function Globe({ layers, onEntityClick, onFilterHooksReady, onFil
       </div>
     </div>
   )
-}
+})
+
+export default Globe

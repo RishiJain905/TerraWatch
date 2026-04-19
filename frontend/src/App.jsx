@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import Globe from './components/Globe/Globe'
 import Header from './components/Header/Header'
 import Sidebar from './components/Sidebar/Sidebar'
@@ -30,6 +30,8 @@ function App() {
   const [selectedShip, setSelectedShip] = useState(null)
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [selectedConflict, setSelectedConflict] = useState(null)
+
+  const globeRef = useRef(null)
 
   useEffect(() => {
     fetch('/api/metadata')
@@ -69,6 +71,7 @@ function App() {
       setSelectedEvent(null)
     }
     console.log(`Selected ${type}:`, entity)
+    globeRef.current?.flyTo(entity)
   }, [])
 
   return (
@@ -78,6 +81,7 @@ function App() {
         <Sidebar layers={layers} onToggleLayer={toggleLayer} filterHooks={typeof filterHooksGetter === 'function' ? filterHooksGetter() : null} />
         <div className="globe-wrapper">
           <Globe
+            ref={globeRef}
             layers={layers}
             onEntityClick={handleEntityClick}
             onFilterHooksReady={handleFilterHooksReady}
