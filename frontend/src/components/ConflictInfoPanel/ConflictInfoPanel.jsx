@@ -1,8 +1,9 @@
 import '../InfoPanel/infoPanel.css'
 import './ConflictInfoPanel.css'
+import { formatOptional, formatTone, formatCoord } from '../../utils/formatters'
 
 function formatDate(dateStr) {
-  if (!dateStr) return '—'
+  if (dateStr == null || dateStr === '') return '—'
   const d = new Date(dateStr)
   if (isNaN(d.getTime())) return dateStr
   return d.toLocaleDateString('en-US', {
@@ -12,21 +13,11 @@ function formatDate(dateStr) {
   })
 }
 
-function formatTone(tone) {
-  if (tone == null) return '—'
-  return tone.toFixed(2)
-}
-
 function toneBadgeClass(tone) {
   if (tone == null) return 'tone-neutral'
   if (tone < -2) return 'tone-negative'
   if (tone > 2) return 'tone-positive'
   return 'tone-neutral'
-}
-
-function formatPosition(lat, lon) {
-  if (lat == null || lon == null) return '—'
-  return `${lat.toFixed(4)}°, ${lon.toFixed(4)}°`
 }
 
 export default function ConflictInfoPanel({ conflict, onClose }) {
@@ -37,7 +28,7 @@ export default function ConflictInfoPanel({ conflict, onClose }) {
       <div className="plane-info-header">
         <h3>
           <span className="type-glyph" aria-hidden="true" />
-          {conflict.event_text || conflict.category || 'Conflict'}
+          {formatOptional(conflict.event_text, null, formatOptional(conflict.category, null, 'Conflict'))}
         </h3>
         <button className="close-btn" onClick={onClose}>×</button>
       </div>
@@ -52,7 +43,7 @@ export default function ConflictInfoPanel({ conflict, onClose }) {
         </div>
         <div className="info-row">
           <span className="info-label">Category</span>
-          <span className="info-value">{conflict.category || '—'}</span>
+          <span className="info-value">{formatOptional(conflict.category, null, '—')}</span>
         </div>
         <div className="info-row">
           <span className="info-label">Date</span>
@@ -61,10 +52,10 @@ export default function ConflictInfoPanel({ conflict, onClose }) {
         <div className="info-row">
           <span className="info-label">Position</span>
           <span className="info-value mono">
-            {formatPosition(conflict.lat, conflict.lon)}
+            {formatCoord(conflict.lat, conflict.lon)}
           </span>
         </div>
-        {conflict.source_url && (
+        {conflict.source_url ? (
           <div className="info-row full-width">
             <a
               className="source-link"
@@ -74,6 +65,11 @@ export default function ConflictInfoPanel({ conflict, onClose }) {
             >
               VIEW SOURCE →
             </a>
+          </div>
+        ) : (
+          <div className="info-row full-width">
+            <span className="info-label">Source</span>
+            <span className="info-value">—</span>
           </div>
         )}
       </div>

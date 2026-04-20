@@ -1,28 +1,10 @@
 import '../InfoPanel/infoPanel.css'
 import './ShipInfoPanel.css'
+import { formatOptional, formatSpeed, formatHeading, formatCoord } from '../../utils/formatters'
 import { SHIP_TYPE_COLORS } from '../../utils/shipIcons'
 
-function formatSpeed(speed) {
-  if (!speed && speed !== 0) return '—'
-  return `${speed.toFixed(1)} KTS`
-}
-
-function formatHeading(h) {
-  if (!h && h !== 0) return '—'
-  const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
-  const idx = Math.round(h / 45) % 8
-  return `${h.toFixed(0)}° ${dirs[idx]}`
-}
-
-function formatPosition(lat, lon) {
-  if (lat == null || lon == null) return '—'
-  const latDir = lat >= 0 ? 'N' : 'S'
-  const lonDir = lon >= 0 ? 'E' : 'W'
-  return `${Math.abs(lat).toFixed(2)}°${latDir} ${Math.abs(lon).toFixed(2)}°${lonDir}`
-}
-
 function formatLastSeen(timestamp) {
-  if (!timestamp) return '—'
+  if (timestamp == null) return '—'
   const now = Date.now()
   const then = new Date(timestamp).getTime()
   if (isNaN(then)) return '—'
@@ -51,7 +33,7 @@ export default function ShipInfoPanel({ ship, onClose }) {
       <div className="ship-info-grid">
         <div className="info-row">
           <span className="info-label">MMSI</span>
-          <span className="info-value mono">{ship.id || '—'}</span>
+          <span className="info-value mono">{formatOptional(ship.id, null, '—')}</span>
         </div>
         <div className="info-row">
           <span className="info-label">Type</span>
@@ -71,11 +53,11 @@ export default function ShipInfoPanel({ ship, onClose }) {
         </div>
         <div className="info-row">
           <span className="info-label">Destination</span>
-          <span className="info-value">{ship.destination || '—'}</span>
+          <span className="info-value">{formatOptional(ship.destination, null, '—')}</span>
         </div>
         <div className="info-row">
           <span className="info-label">Position</span>
-          <span className="info-value mono">{formatPosition(ship.lat, ship.lon)}</span>
+          <span className="info-value mono">{formatCoord(ship.lat, ship.lon)}</span>
         </div>
         <div className="info-row">
           <span className="info-label">Last Seen</span>

@@ -1,10 +1,6 @@
 import '../InfoPanel/infoPanel.css'
 import './EventInfoPanel.css'
-
-function formatTone(tone) {
-  if (tone == null) return '—'
-  return tone.toFixed(2)
-}
+import { formatOptional, formatTone, formatCoord } from '../../utils/formatters'
 
 function toneBadgeClass(tone) {
   if (tone == null) return 'tone-neutral'
@@ -14,7 +10,7 @@ function toneBadgeClass(tone) {
 }
 
 function formatDate(dateStr) {
-  if (!dateStr) return '—'
+  if (dateStr == null || dateStr === '') return '—'
   const d = new Date(dateStr)
   if (isNaN(d.getTime())) return dateStr
   return d.toLocaleDateString('en-US', {
@@ -40,7 +36,7 @@ export default function EventInfoPanel({ event, onClose }) {
       </div>
       <div className="plane-info-grid">
         <div className="info-row full-width">
-          <span className="info-value event-text">{event.event_text || '—'}</span>
+          <span className="info-value event-text">{formatOptional(event.event_text, null, '—')}</span>
         </div>
         <div className="info-row">
           <span className="info-label">Tone</span>
@@ -52,7 +48,7 @@ export default function EventInfoPanel({ event, onClose }) {
         </div>
         <div className="info-row">
           <span className="info-label">Category</span>
-          <span className="info-value">{event.category || '—'}</span>
+          <span className="info-value">{formatOptional(event.category, null, '—')}</span>
         </div>
         <div className="info-row">
           <span className="info-label">Date</span>
@@ -61,12 +57,10 @@ export default function EventInfoPanel({ event, onClose }) {
         <div className="info-row">
           <span className="info-label">Position</span>
           <span className="info-value mono">
-            {event.lat != null && event.lon != null
-              ? `${event.lat.toFixed(4)}°, ${event.lon.toFixed(4)}°`
-              : '—'}
+            {formatCoord(event.lat, event.lon)}
           </span>
         </div>
-        {event.source_url && (
+        {event.source_url ? (
           <div className="info-row full-width">
             <a
               className="source-link"
@@ -76,6 +70,11 @@ export default function EventInfoPanel({ event, onClose }) {
             >
               VIEW SOURCE →
             </a>
+          </div>
+        ) : (
+          <div className="info-row full-width">
+            <span className="info-label">Source</span>
+            <span className="info-value">—</span>
           </div>
         )}
       </div>
