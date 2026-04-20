@@ -43,6 +43,68 @@ function App() {
       .catch(() => setBackendStatus('error'))
   }, [])
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const t = e.target
+      if (
+        t.tagName === 'INPUT' ||
+        t.tagName === 'TEXTAREA' ||
+        t.tagName === 'SELECT' ||
+        t.isContentEditable ||
+        t.closest('[role="combobox"]')
+      ) {
+        return
+      }
+
+      switch (e.key) {
+        case 'Escape':
+          setSelectedPlane(null)
+          setSelectedShip(null)
+          setSelectedEvent(null)
+          setSelectedConflict(null)
+          break
+        case 'r':
+        case 'R':
+          globeRef.current?.resetView()
+          break
+        case 'ArrowLeft':
+          globeRef.current?.rotateGlobe(-15, 0)
+          break
+        case 'ArrowRight':
+          globeRef.current?.rotateGlobe(15, 0)
+          break
+        case 'ArrowUp':
+          globeRef.current?.rotateGlobe(0, 5)
+          break
+        case 'ArrowDown':
+          globeRef.current?.rotateGlobe(0, -5)
+          break
+        case '+':
+        case '=':
+          globeRef.current?.zoomGlobe(1)
+          break
+        case '-':
+          globeRef.current?.zoomGlobe(-1)
+          break
+        case '1':
+          toggleLayer('planes')
+          break
+        case '2':
+          toggleLayer('ships')
+          break
+        case '3':
+          toggleLayer('events')
+          break
+        case '4':
+          toggleLayer('conflicts')
+          break
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   const toggleLayer = useCallback((layer) => {
     setLayers(prev => ({ ...prev, [layer]: !prev[layer] }))
   }, [])

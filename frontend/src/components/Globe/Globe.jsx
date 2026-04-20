@@ -73,7 +73,22 @@ const Globe = forwardRef(function Globe({ layers, onEntityClick, onFilterHooksRe
     })
   }, [])
 
-  useImperativeHandle(ref, () => ({ flyTo, resetView }), [flyTo, resetView])
+  const rotateGlobe = (dBearing, dPitch) => {
+    setViewState(prev => ({
+      ...prev,
+      bearing: prev.bearing + dBearing,
+      pitch: Math.max(0, Math.min(60, prev.pitch + dPitch)),
+    }))
+  }
+
+  const zoomGlobe = (dZoom) => {
+    setViewState(prev => ({
+      ...prev,
+      zoom: Math.max(0.5, Math.min(10, prev.zoom + dZoom)),
+    }))
+  }
+
+  useImperativeHandle(ref, () => ({ flyTo, resetView, rotateGlobe, zoomGlobe }), [flyTo, resetView, rotateGlobe, zoomGlobe])
   const deckRef = useRef(null)
 
   // Map basemap style — hydrated from localStorage on mount so the user's
