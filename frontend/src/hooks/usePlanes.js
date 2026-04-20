@@ -15,6 +15,7 @@ export function usePlanes(selectedPlaneId = null) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
+  const [lastUpdated, setLastUpdated] = useState(null)
   const planesRef = useRef(initialPlanes)
   const selectedPlaneIdRef = useRef(selectedPlaneId)
   const trailStoreRef = useRef({})
@@ -101,6 +102,7 @@ export function usePlanes(selectedPlaneId = null) {
       if (!res.ok) throw new Error('Failed to fetch planes')
       const data = await res.json()
       setPlanes(data)
+      setLastUpdated(Date.now())
       if (selectedPlaneIdRef.current) {
         const selectedPlane = data.find(plane => plane.id === selectedPlaneIdRef.current)
         if (selectedPlane) {
@@ -126,6 +128,7 @@ export function usePlanes(selectedPlaneId = null) {
       }
       return [...prev, plane]
     })
+    setLastUpdated(Date.now())
 
     appendSelectedPlaneTrailPoint(plane)
   }, [appendSelectedPlaneTrailPoint])
@@ -133,6 +136,7 @@ export function usePlanes(selectedPlaneId = null) {
   const addPlanes = useCallback((incomingPlanes) => {
     // plane_batch is authoritative — replace entirely, don't merge
     setPlanes(incomingPlanes)
+    setLastUpdated(Date.now())
     if (selectedPlaneIdRef.current) {
       const selectedPlane = incomingPlanes.find(plane => plane.id === selectedPlaneIdRef.current)
       if (selectedPlane) {
@@ -167,5 +171,5 @@ export function usePlanes(selectedPlaneId = null) {
     fetchPlanes()
   }, [fetchPlanes])
 
-  return { planes, filteredPlanes, filters, updateFilter, loading, error, fetchPlanes, addPlane, addPlanes, removePlane, trailStoreRef }
+  return { planes, filteredPlanes, filters, updateFilter, loading, error, fetchPlanes, addPlane, addPlanes, removePlane, trailStoreRef, lastUpdated }
 }

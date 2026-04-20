@@ -61,6 +61,22 @@ class TestRootEndpoint(IntegrationTestBase):
         self.assertEqual(body["status"], "running")
 
 
+class TestStaleThresholdsEndpoint(IntegrationTestBase):
+    async def test_stale_thresholds_returns_expected_keys_and_defaults(self):
+        response = await self._get("/api/stale-thresholds")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertIn("planes", body)
+        self.assertIn("ships", body)
+        self.assertIn("events", body)
+        self.assertIn("conflicts", body)
+        self.assertIsInstance(body["planes"], int)
+        self.assertIsInstance(body["ships"], int)
+        self.assertIsInstance(body["events"], int)
+        self.assertIsInstance(body["conflicts"], int)
+
+
 class TestPlaneEndpoints(IntegrationTestBase):
     async def test_get_planes_returns_list(self):
         response = await self._get("/api/planes")

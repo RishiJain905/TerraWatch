@@ -4,6 +4,8 @@ from contextlib import asynccontextmanager
 
 import aiosqlite
 
+from app.config import settings
+
 DATABASE_PATH = "./terrawatch.db"
 
 _db_instance: aiosqlite.Connection | None = None
@@ -323,11 +325,13 @@ async def upsert_planes(
 
 async def delete_old_planes(
     db: aiosqlite.Connection,
-    max_age_minutes: int = 5,
+    max_age_minutes: int = None,
     *,
     commit: bool = True,
 ) -> list[str]:
     """Delete stale planes and return the deleted plane ids."""
+    if max_age_minutes is None:
+        max_age_minutes = settings.STALE_PLANE_SECONDS // 60
     if commit:
         async with db_write_guard():
             deleted_ids = await delete_old_planes(db, max_age_minutes=max_age_minutes, commit=False)
@@ -401,11 +405,13 @@ async def upsert_ships(
 
 async def delete_old_ships(
     db: aiosqlite.Connection,
-    max_age_minutes: int = 10,
+    max_age_minutes: int = None,
     *,
     commit: bool = True,
 ) -> list[str]:
     """Delete stale ships and return the deleted ship ids."""
+    if max_age_minutes is None:
+        max_age_minutes = settings.STALE_SHIP_SECONDS // 60
     if commit:
         async with db_write_guard():
             deleted_ids = await delete_old_ships(db, max_age_minutes=max_age_minutes, commit=False)
@@ -486,11 +492,13 @@ async def upsert_events(
 
 async def delete_old_events(
     db: aiosqlite.Connection,
-    max_age_days: int = 30,
+    max_age_days: int = None,
     *,
     commit: bool = True,
 ) -> list[str]:
     """Delete stale events older than max_age_days and return the deleted event ids."""
+    if max_age_days is None:
+        max_age_days = settings.STALE_EVENT_SECONDS // 86400
     if commit:
         async with db_write_guard():
             deleted_ids = await delete_old_events(db, max_age_days=max_age_days, commit=False)

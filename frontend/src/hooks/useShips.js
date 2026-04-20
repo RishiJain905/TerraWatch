@@ -10,6 +10,7 @@ export function useShips(selectedShipId = null) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
+  const [lastUpdated, setLastUpdated] = useState(null)
   const shipsRef = useRef(initialShips)
   const selectedShipIdRef = useRef(selectedShipId)
   const trailStoreRef = useRef({})
@@ -68,6 +69,7 @@ export function useShips(selectedShipId = null) {
       if (!res.ok) throw new Error('Failed to fetch ships')
       const data = await res.json()
       setShips(data)
+      setLastUpdated(Date.now())
       setError(null)
     } catch (e) {
       setError(e.message)
@@ -88,6 +90,7 @@ export function useShips(selectedShipId = null) {
       }
       return [...prev, ship]
     })
+    setLastUpdated(Date.now())
     appendSelectedShipTrailPoint(ship)
   }, [appendSelectedShipTrailPoint])
 
@@ -103,6 +106,7 @@ export function useShips(selectedShipId = null) {
       }
       return Array.from(map.values())
     })
+    setLastUpdated(Date.now())
     // Clean up trail entries for ship IDs no longer in the batch
     const batchIds = new Set(shipList.filter(s => s && s.id).map(s => s.id))
     for (const id of Object.keys(trailStoreRef.current)) {
@@ -150,5 +154,5 @@ export function useShips(selectedShipId = null) {
     trailStoreRef.current = {}
   }, [selectedShipId, seedSelectedShipTrail])
 
-  return { ships, filteredShips, filters, updateFilter, loading, error, fetchShips, addShip, addShips, removeShip, trailStoreRef }
+  return { ships, filteredShips, filters, updateFilter, loading, error, fetchShips, addShip, addShips, removeShip, trailStoreRef, lastUpdated }
 }

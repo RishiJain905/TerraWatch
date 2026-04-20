@@ -15,6 +15,7 @@ import { usePlanes } from '../../hooks/usePlanes'
 import { useShips } from '../../hooks/useShips'
 import { useEvents } from '../../hooks/useEvents'
 import { useConflicts } from '../../hooks/useConflicts'
+import { useStaleThresholds } from '../../hooks/useStaleThresholds'
 import MapStyleSwitcher, { MAP_STYLES } from './MapStyleSwitcher'
 import Minimap from './Minimap'
 import './Globe.css'
@@ -227,10 +228,11 @@ const Globe = forwardRef(function Globe({ layers, onEntityClick, onFilterHooksRe
     window.addEventListener('resize', updateAtmosphere)
     return () => window.removeEventListener('resize', updateAtmosphere)
   }, [updateAtmosphere])
-  const { events, filteredEvents, addEvents, filters: eventsFilters, updateFilter: eventsUpdateFilter } = useEvents()
-  const { conflicts, filteredConflicts, addConflicts, filters: conflictsFilters, updateFilter: conflictsUpdateFilter } = useConflicts()
-  const { planes, filteredPlanes, addPlane, addPlanes, removePlane, filters: planesFilters, updateFilter: planesUpdateFilter, trailStoreRef } = usePlanes(selectedPlane?.id)
-  const { ships, filteredShips, addShip, addShips, removeShip, filters: shipsFilters, updateFilter: shipsUpdateFilter, trailStoreRef: shipTrailStoreRef } = useShips(selectedShip?.id)
+  const { events, filteredEvents, addEvents, filters: eventsFilters, updateFilter: eventsUpdateFilter, lastUpdated: eventsLastUpdated } = useEvents()
+  const { conflicts, filteredConflicts, addConflicts, filters: conflictsFilters, updateFilter: conflictsUpdateFilter, lastUpdated: conflictsLastUpdated } = useConflicts()
+  const { planes, filteredPlanes, addPlane, addPlanes, removePlane, filters: planesFilters, updateFilter: planesUpdateFilter, trailStoreRef, lastUpdated: planesLastUpdated } = usePlanes(selectedPlane?.id)
+  const { ships, filteredShips, addShip, addShips, removeShip, filters: shipsFilters, updateFilter: shipsUpdateFilter, trailStoreRef: shipTrailStoreRef, lastUpdated: shipsLastUpdated } = useShips(selectedShip?.id)
+  const staleThresholds = useStaleThresholds()
   const liveSelectedPlane = useMemo(() => {
     if (!selectedPlane?.id) return null
     return planes.find(plane => plane.id === selectedPlane.id) ?? selectedPlane
@@ -247,10 +249,10 @@ const Globe = forwardRef(function Globe({ layers, onEntityClick, onFilterHooksRe
   // reads from the ref, so the parent receives a stable reference.
   const filterHooksRef = useRef(null)
   filterHooksRef.current = {
-    planes: { filters: planesFilters, updateFilter: planesUpdateFilter, rawCount: planes.length, filteredCount: filteredPlanes.length },
-    ships: { filters: shipsFilters, updateFilter: shipsUpdateFilter, rawCount: ships.length, filteredCount: filteredShips.length },
-    events: { filters: eventsFilters, updateFilter: eventsUpdateFilter, rawCount: events.length, filteredCount: filteredEvents.length },
-    conflicts: { filters: conflictsFilters, updateFilter: conflictsUpdateFilter, rawCount: conflicts.length, filteredCount: filteredConflicts.length },
+    planes: { filters: planesFilters, updateFilter: planesUpdateFilter, rawCount: planes.length, filteredCount: filteredPlanes.length, lastUpdated: planesLastUpdated, staleThreshold: staleThresholds.planes },
+    ships: { filters: shipsFilters, updateFilter: shipsUpdateFilter, rawCount: ships.length, filteredCount: filteredShips.length, lastUpdated: shipsLastUpdated, staleThreshold: staleThresholds.ships },
+    events: { filters: eventsFilters, updateFilter: eventsUpdateFilter, rawCount: events.length, filteredCount: filteredEvents.length, lastUpdated: eventsLastUpdated, staleThreshold: staleThresholds.events },
+    conflicts: { filters: conflictsFilters, updateFilter: conflictsUpdateFilter, rawCount: conflicts.length, filteredCount: filteredConflicts.length, lastUpdated: conflictsLastUpdated, staleThreshold: staleThresholds.conflicts },
   }
 
   useEffect(() => {
@@ -263,11 +265,11 @@ const Globe = forwardRef(function Globe({ layers, onEntityClick, onFilterHooksRe
     }
   }, [onFilterHooksReady])
 
-  // Sidebar reads hooks via a getter on App re-render only; when filters change inside
-  // Globe, bump App so controlled range inputs and checkboxes stay in sync.
+  // Sidebar reads hooks via a getter on App re-render only; when filters or freshness
+  // change inside Globe, bump App so controlled range inputs and freshness stay in sync.
   useEffect(() => {
     onFiltersChange?.()
-  }, [planesFilters, shipsFilters, eventsFilters, conflictsFilters, onFiltersChange])
+  }, [planesFilters, shipsFilters, eventsFilters, conflictsFilters, planesLastUpdated, shipsLastUpdated, eventsLastUpdated, conflictsLastUpdated, onFiltersChange])
 
   // Handle WebSocket messages — planes + ships
   const handleWSMessage = useCallback((msg) => {

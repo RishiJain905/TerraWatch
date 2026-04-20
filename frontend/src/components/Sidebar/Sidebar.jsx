@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './Sidebar.css'
 
 function PlaneIcon() {
@@ -45,6 +45,44 @@ function CaretIcon({ open }) {
     <svg viewBox="0 0 10 10" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="square" aria-hidden="true" style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 120ms ease' }}>
       <path d="M3.5 2 L7 5 L3.5 8" />
     </svg>
+  )
+}
+
+function formatAge(sec) {
+  if (sec < 60) return `${sec}s ago`
+  const m = Math.floor(sec / 60)
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  return `${h}h ago`
+}
+
+function FreshnessIndicator({ lastUpdated, staleThreshold }) {
+  const [now, setNow] = useState(Date.now())
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 10000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const ageMs = lastUpdated != null ? now - lastUpdated : null
+  const ageSec = ageMs !== null ? Math.floor(ageMs / 1000) : null
+
+  let label, dotClass, textClass
+  if (ageSec === null) {
+    label = 'NO DATA'; dotClass = 'none'; textClass = 'none'
+  } else if (ageSec < 30) {
+    label = 'LIVE'; dotClass = 'live'; textClass = 'live'
+  } else if (ageSec < staleThreshold) {
+    label = formatAge(ageSec); dotClass = 'age'; textClass = 'age'
+  } else {
+    label = 'STALE'; dotClass = 'stale'; textClass = 'stale'
+  }
+
+  return (
+    <span className="layer-freshness">
+      <span className={`freshness-dot ${dotClass}`} aria-hidden="true" />
+      <span className={`freshness-text ${textClass}`}>{label}</span>
+    </span>
   )
 }
 
@@ -307,6 +345,7 @@ function LayerItem({ layer, isActive, onToggleLayer, isExpanded, onToggleExpand,
         <span className="layer-label-block">
           <span className="layer-label">{layer.label}</span>
           <LayerCount hook={filterHook} />
+          <FreshnessIndicator lastUpdated={filterHook?.lastUpdated ?? null} staleThreshold={filterHook?.staleThreshold ?? 3600} />
         </span>
         <button
           type="button"

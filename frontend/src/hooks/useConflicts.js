@@ -9,6 +9,7 @@ export function useConflicts() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
+  const [lastUpdated, setLastUpdated] = useState(null)
 
   const fetchConflicts = useCallback(async () => {
     try {
@@ -16,6 +17,7 @@ export function useConflicts() {
       if (!res.ok) throw new Error('Failed to fetch conflicts')
       const data = await res.json()
       setConflicts(data)
+      setLastUpdated(Date.now())
       setError(null)
     } catch (e) {
       setError(e.message)
@@ -36,12 +38,14 @@ export function useConflicts() {
       }
       return [...prev, conflict]
     })
+    setLastUpdated(Date.now())
   }, [])
 
   // Batch conflict set (for conflict_batch WebSocket messages)
   const addConflicts = useCallback((conflictList) => {
     if (!Array.isArray(conflictList) || conflictList.length === 0) return
     setConflicts(conflictList)
+    setLastUpdated(Date.now())
   }, [])
 
   // Filtered conflicts based on current filters
@@ -65,5 +69,5 @@ export function useConflicts() {
     fetchConflicts()
   }, [fetchConflicts])
 
-  return { conflicts, filteredConflicts, loading, error, filters, updateFilter, fetchConflicts, addConflict, addConflicts }
+  return { conflicts, filteredConflicts, loading, error, filters, updateFilter, fetchConflicts, addConflict, addConflicts, lastUpdated }
 }

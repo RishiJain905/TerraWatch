@@ -54,6 +54,12 @@ class Settings:
     AISSTREAM_BATCH_INTERVAL_SECONDS: int = int(os.getenv("AISSTREAM_BATCH_INTERVAL_SECONDS", "30"))
     GDELT_REFRESH_SECONDS: int = int(os.getenv("GDELT_REFRESH_SECONDS", "900"))  # 15 minutes
 
+    # Stale data thresholds (seconds)
+    STALE_PLANE_SECONDS: int = int(os.getenv("STALE_PLANE_SECONDS", "300"))
+    STALE_SHIP_SECONDS: int = int(os.getenv("STALE_SHIP_SECONDS", "600"))
+    STALE_EVENT_SECONDS: int = int(os.getenv("STALE_EVENT_SECONDS", "3600"))
+    STALE_CONFLICT_SECONDS: int = int(os.getenv("STALE_CONFLICT_SECONDS", "3600"))
+
     # Database
     DATABASE_URL: str = "sqlite:///./terrawatch.db"
 

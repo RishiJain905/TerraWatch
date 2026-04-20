@@ -207,6 +207,67 @@
   color: var(--text-2);
 }
 
+/* ---------- Freshness indicator ---------- */
+
+.layer-freshness {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.freshness-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.freshness-dot.live {
+  background: var(--accent-ok);
+  box-shadow: 0 0 4px rgba(95, 207, 138, 0.6);
+  animation: metaPulse 2.4s ease-in-out infinite;
+}
+
+.freshness-dot.age {
+  background: var(--text-3);
+}
+
+.freshness-dot.stale {
+  background: var(--accent-warn);
+  box-shadow: 0 0 4px rgba(232, 184, 74, 0.5);
+}
+
+.freshness-dot.none {
+  background: var(--text-3);
+}
+
+.freshness-text.live {
+  color: var(--accent-ok);
+}
+
+.freshness-text.age {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.freshness-text.stale {
+  color: var(--accent-warn);
+}
+
+.freshness-text.none {
+  color: var(--text-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .freshness-dot.live {
+    animation: none;
+  }
+}
+
 /* ---------- Segmented ON/OFF toggle ---------- */
 
 .layer-toggle {
