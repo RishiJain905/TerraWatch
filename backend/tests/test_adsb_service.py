@@ -27,6 +27,28 @@ class FakeAsyncClient:
 
 
 class ADSBServiceTests(unittest.IsolatedAsyncioTestCase):
+    def test_log_opensky_rate_limit_hint_uses_opensky_retry_header(self):
+        request = httpx.Request("GET", adsb_service.OPENSKY_STATES_API)
+        response = httpx.Response(
+            429,
+            request=request,
+            headers={"X-Rate-Limit-Retry-After-Seconds": "45684"},
+            text="Too many requests",
+        )
+        exc = httpx.HTTPStatusError("429 Too Many Requests", request=request, response=response)
+
+        with patch.object(adsb_service.logger, "warning") as mock_warning:
+            adsb_service._log_opensky_rate_limit_hint(exc)
+
+        mock_warning.assert_called_once()
+        message, retry_after, retry_at_local, retry_at_utc = mock_warning.call_args.args[:4]
+        self.assertIn("retry_after_seconds=%s", message)
+        self.assertIn("retry_at_local=%s", message)
+        self.assertIn("retry_at_utc=%s", message)
+        self.assertEqual(retry_after, "45684")
+        self.assertNotEqual(retry_at_local, "(unknown)")
+        self.assertNotEqual(retry_at_utc, "(unknown)")
+
     async def test_fetch_planes_normalizes_opensky_states(self):
         payload = {
             "time": 1712751234,
