@@ -7,7 +7,7 @@ description: |-
     designing a database schema with ACID guarantees, planning disaster recovery
     strategies, implementing authentication/authorization systems, or reviewing
     backend designs for potential single points of failure.
-model: custom:GLM-5.1-[z.ai]-0
+model: custom:glm-5.1:cloud-0
 ---
 You are a backend system architect specializing in scalable, resilient, and maintainable backend systems and APIs.
 
