@@ -401,7 +401,7 @@ const Globe = forwardRef(function Globe({ layers, onEntityClick, onFilterHooksRe
     radiusUnits: 'meters',
     getFillColor: d => d.fillColor,
     pickable: false,
-    parameters: { depthTest: false, cullMode: 'back' },
+    parameters: { depthTest: false },
   })
 
   // Terminator raster — dark-blue twilight tint keyed off solar elevation.
