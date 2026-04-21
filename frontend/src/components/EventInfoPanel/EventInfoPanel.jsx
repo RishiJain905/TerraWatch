@@ -1,26 +1,13 @@
 import { useState } from 'react'
 import '../InfoPanel/infoPanel.css'
 import './EventInfoPanel.css'
-import { formatOptional, formatTone, formatCoord, copyToClipboard } from '../../utils/formatters'
+import { formatOptional, formatTone, formatCoord, formatRelativeTime, copyToClipboard } from '../../utils/formatters'
 
 function toneBadgeClass(tone) {
   if (tone == null) return 'tone-neutral'
   if (tone < -2) return 'tone-negative'
   if (tone > 2) return 'tone-positive'
   return 'tone-neutral'
-}
-
-function formatDate(dateStr) {
-  if (dateStr == null || dateStr === '') return '—'
-  const d = new Date(dateStr)
-  if (isNaN(d.getTime())) return dateStr
-  return d.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }
 
 export default function EventInfoPanel({ event, onClose }) {
@@ -79,7 +66,7 @@ export default function EventInfoPanel({ event, onClose }) {
         </div>
         <div className="info-row">
           <span className="info-label">Date</span>
-          <span className="info-value">{formatDate(event.date)}</span>
+          <span className="info-value">{formatRelativeTime(event.date)}</span>
         </div>
         <div className="info-row">
           <span className="info-label">Position</span>

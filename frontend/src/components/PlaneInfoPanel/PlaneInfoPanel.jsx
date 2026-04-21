@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { formatOptional, formatAltitude, formatSpeed, formatHeading, formatCoord, formatTimestamp, copyToClipboard } from '../../utils/formatters'
+import { formatOptional, formatAltitude, formatSpeed, formatHeading, formatCoord, formatRelativeTime, copyToClipboard } from '../../utils/formatters'
 import '../InfoPanel/infoPanel.css'
 import './PlaneInfoPanel.css'
 
@@ -61,7 +61,7 @@ export default function PlaneInfoPanel({ plane, onClose }) {
         </div>
         <div className="info-row">
           <span className="info-label">Last Contact</span>
-          <span className="info-value">{formatTimestamp(plane.last_contact)}</span>
+          <span className="info-value">{formatRelativeTime(plane.timestamp)}</span>
         </div>
       </div>
     </div>

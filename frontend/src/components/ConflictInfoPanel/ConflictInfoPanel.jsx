@@ -1,18 +1,7 @@
 import { useState } from 'react'
 import '../InfoPanel/infoPanel.css'
 import './ConflictInfoPanel.css'
-import { formatOptional, formatTone, formatCoord, copyToClipboard } from '../../utils/formatters'
-
-function formatDate(dateStr) {
-  if (dateStr == null || dateStr === '') return '—'
-  const d = new Date(dateStr)
-  if (isNaN(d.getTime())) return dateStr
-  return d.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
-}
+import { formatOptional, formatTone, formatCoord, formatRelativeTime, copyToClipboard } from '../../utils/formatters'
 
 function toneBadgeClass(tone) {
   if (tone == null) return 'tone-neutral'
@@ -74,7 +63,7 @@ export default function ConflictInfoPanel({ conflict, onClose }) {
         </div>
         <div className="info-row">
           <span className="info-label">Date</span>
-          <span className="info-value">{formatDate(conflict.date)}</span>
+          <span className="info-value">{formatRelativeTime(conflict.date)}</span>
         </div>
         <div className="info-row">
           <span className="info-label">Position</span>

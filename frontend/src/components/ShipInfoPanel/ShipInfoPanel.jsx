@@ -1,21 +1,8 @@
 import { useState } from 'react'
 import '../InfoPanel/infoPanel.css'
 import './ShipInfoPanel.css'
-import { formatOptional, formatSpeed, formatHeading, formatCoord, copyToClipboard } from '../../utils/formatters'
+import { formatOptional, formatSpeed, formatHeading, formatCoord, formatRelativeTime, copyToClipboard } from '../../utils/formatters'
 import { SHIP_TYPE_COLORS } from '../../utils/shipIcons'
-
-function formatLastSeen(timestamp) {
-  if (timestamp == null) return '—'
-  const now = Date.now()
-  const then = new Date(timestamp).getTime()
-  if (isNaN(then)) return '—'
-  const diffSec = Math.max(0, Math.floor((now - then) / 1000))
-  if (diffSec < 60) return `${diffSec}s ago`
-  const diffMin = Math.floor(diffSec / 60)
-  if (diffMin < 60) return `${diffMin}m ago`
-  const diffHr = Math.floor(diffMin / 60)
-  return `${diffHr}h ago`
-}
 
 export default function ShipInfoPanel({ ship, onClose }) {
   if (!ship) return null
@@ -73,7 +60,7 @@ export default function ShipInfoPanel({ ship, onClose }) {
         </div>
         <div className="info-row">
           <span className="info-label">Last Seen</span>
-          <span className="info-value">{formatLastSeen(ship.timestamp)}</span>
+          <span className="info-value">{formatRelativeTime(ship.timestamp)}</span>
         </div>
       </div>
     </div>
