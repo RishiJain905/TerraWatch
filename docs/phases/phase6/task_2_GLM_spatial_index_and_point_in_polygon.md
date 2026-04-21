@@ -1,4 +1,4 @@
-# Phase 6 — Task 3: Spatial Utils (Point-in-Polygon + Prefilter)
+# Phase 6 — Task 2: Spatial Utils (Point-in-Polygon + Prefilter)
 
 ## Context
 

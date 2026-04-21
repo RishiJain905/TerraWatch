@@ -1,4 +1,4 @@
-# Phase 6 — Task 7: Alert Persistence, Dedup, and Acknowledgement
+# Phase 6 — Task 5: Alert Persistence, Dedup, and Acknowledgement
 
 ## Context
 

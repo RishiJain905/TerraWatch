@@ -1,20 +1,18 @@
-# Phase 6 — Task 1: Zone Data Model + DB Schema
+# Phase 6 — Task 1: Zone Data Model, DB Schema, and CRUD API
 
 ## Context
 
 Read first:
 - `backend/app/core/models.py`
 - `backend/app/core/database.py`
+- `backend/app/api/routes/planes.py`
+- `backend/app/api/routes/ships.py`
 - `backend/app/main.py`
 - `docs/ARCHITECTURE.md`
 
 ## Goal
 
-Add first-class backend support for zones and alerts:
-- Pydantic models
-- SQLite tables
-- indexes
-- migration-safe init path
+Add first-class backend support for zones and alerts, then expose stable `/api/zones` CRUD routes with strict validation.
 
 ## Implementation
 
@@ -81,24 +79,53 @@ Indexes:
 - `idx_alerts_ack_state`
 - `idx_alerts_dedup_key`
 
+### Zone CRUD API (`backend/app/api/routes/zones.py`)
+
+Create `backend/app/api/routes/zones.py` and register router in `app/main.py`.
+
+Endpoints:
+- `GET /api/zones`
+- `POST /api/zones`
+- `GET /api/zones/{zone_id}`
+- `PATCH /api/zones/{zone_id}`
+- `DELETE /api/zones/{zone_id}`
+
+Validation rules:
+- minimum polygon vertices: 3 unique points
+- polygon coordinates must be valid lon/lat ranges
+- close polygon server-side if not explicitly closed
+- reject malformed JSON polygon payloads
+- enforce non-empty `name`
+
+Behavior:
+- return `404` for missing zone IDs
+- return `422` for invalid payloads
+- hard delete is acceptable in Phase 6
+
 ### Helpers
 
 Add DB helpers for:
 - insert/update/list/get/delete zones
-- insert/list/count/ack alerts
+- insert/list/count/ack alerts (schema-ready helpers)
 
 Keep function style aligned with existing plane/ship/event helper patterns.
 
-## Files to Update
+## Files to Create/Update
 
-- `backend/app/core/models.py`
-- `backend/app/core/database.py`
-- `backend/tests/test_database_and_scheduler.py` (schema assertions)
+- Update: `backend/app/core/models.py`
+- Update: `backend/app/core/database.py`
+- Create: `backend/app/api/routes/zones.py`
+- Update: `backend/app/main.py`
+- Update: `backend/tests/test_database_and_scheduler.py` (schema assertions)
+- Create: `backend/tests/test_zone_routes.py`
 
 ## Verification
 
 - [ ] `init_db()` creates `zones` and `alerts` tables
 - [ ] required indexes exist
-- [ ] zone row round-trip works
-- [ ] alert row round-trip works
+- [ ] create/list/get/patch/delete zone flow passes
+- [ ] create response returns normalized polygon
+- [ ] invalid polygons rejected with clear `422` errors
+- [ ] zone and alert row round-trip works
 - [ ] `python -m pytest backend/tests/test_database_and_scheduler.py -v` passes
+- [ ] `python -m pytest backend/tests/test_zone_routes.py -v` passes

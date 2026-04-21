@@ -1,4 +1,4 @@
-# Phase 6 — Task 8: Alert WebSocket Stream
+# Phase 6 — Task 6: Alert WebSocket Stream
 
 ## Context
 

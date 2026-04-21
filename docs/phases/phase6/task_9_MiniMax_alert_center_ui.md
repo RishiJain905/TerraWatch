@@ -1,4 +1,4 @@
-# Phase 6 — Task 11: Alert Center Panel
+# Phase 6 — Task 9: Alert Center Panel
 
 ## Context
 

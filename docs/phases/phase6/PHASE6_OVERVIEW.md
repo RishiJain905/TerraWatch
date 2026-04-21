@@ -61,41 +61,38 @@ Zone and alert controls should live in Sidebar + dedicated panels, not scattered
 
 ---
 
-## Task Breakdown
+## Task Breakdown (Rationalized to 11 Tasks)
 
 ### Backend Foundation
 
 | # | Task | Description | Agent |
 |---|------|-------------|-------|
-| 1 | Zone data model + DB schema | Add Zone/Alert models, SQLite tables, indexes, migration-safe schema init | GLM |
-| 2 | Zone CRUD API | `/api/zones` create/list/get/update/delete + validation | GLM |
-| 3 | Spatial utils | Polygon normalization, bbox prefilter, point-in-polygon with tests | GLM |
-| 4 | Entity-zone membership tracking | Maintain current zone membership for planes/ships, detect transitions | GLM |
+| 1 | Zone model/schema + CRUD API | Add Zone/Alert models + SQLite tables/indexes and ship `/api/zones` CRUD with validation | GLM |
+| 2 | Spatial utils | Polygon normalization, bbox prefilter, point-in-polygon with tests | GLM |
+| 3 | Membership tracking + entry/exit alert engine | Track plane/ship zone transitions and convert them into cooldown-aware alerts | GLM |
 
 ### Alerting & Correlation Engine
 
 | # | Task | Description | Agent |
 |---|------|-------------|-------|
-| 5 | Entry/exit alert rule engine | Generate structured alerts for transitions with cooldowns | GLM |
-| 6 | Event/conflict zone correlation | Correlate incoming events/conflicts to active zones | GLM |
-| 7 | Alert persistence + dedup | Store alerts, dedup bursts, add ack/suppress metadata | MiniMax |
-| 8 | Alert WebSocket stream | Broadcast `alert` / `alert_batch` messages to frontend clients | GLM |
+| 4 | Event/conflict zone correlation | Correlate incoming events/conflicts to active zones | GLM |
+| 5 | Alert persistence + dedup | Store alerts, dedup bursts, add ack/suppress metadata | MiniMax |
+| 6 | Alert WebSocket stream | Broadcast `alert` / `alert_batch` messages to frontend clients | GLM |
 
 ### Frontend Zone & Alert UX
 
 | # | Task | Description | Agent |
 |---|------|-------------|-------|
-| 9 | Zone editor UI | Draw/edit polygon zones on globe, form validation, save flows | GLM |
-| 10 | Zone manager in Sidebar | Zone list, toggle active, edit/delete, quick status indicators | GLM |
-| 11 | Alert center panel | Real-time alert feed, filters, ack/clear controls, severity badges | MiniMax |
-| 12 | Globe zone overlays | Zone polygon rendering, labels, selection/highlight states | GLM |
+| 7 | Zone editor + globe overlays | Draw/edit polygons and render zone overlays/selection states on globe | GLM |
+| 8 | Zone manager in Sidebar | Zone list, toggle active, edit/delete, quick status indicators | GLM |
+| 9 | Alert center panel | Real-time alert feed, filters, ack/clear controls, severity badges | MiniMax |
 
 ### Notifications, QA, Docs
 
 | # | Task | Description | Agent |
 |---|------|-------------|-------|
-| 13 | Notification channels | Webhook delivery + retry queue + env-configured providers | MiniMax |
-| 14 | End-to-end verification + docs | Full scenario tests, failure-mode tests, docs + runbooks | MiniMax |
+| 10 | Notification channels | Webhook delivery + retry queue + env-configured providers | MiniMax |
+| 11 | End-to-end verification + docs | Full scenario tests, failure-mode tests, docs + runbooks | MiniMax |
 
 ---
 

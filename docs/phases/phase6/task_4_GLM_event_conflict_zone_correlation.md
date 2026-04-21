@@ -1,4 +1,4 @@
-# Phase 6 — Task 6: Event/Conflict Zone Correlation
+# Phase 6 — Task 4: Event/Conflict Zone Correlation
 
 ## Context
 

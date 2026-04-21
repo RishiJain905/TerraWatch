@@ -1,4 +1,4 @@
-# Phase 6 — Task 14: End-to-End Verification, Hardening, and Documentation
+# Phase 6 — Task 11: End-to-End Verification, Hardening, and Documentation
 
 ## Context
 

@@ -1,4 +1,4 @@
-# Phase 6 — Task 13: Notification Channels (Webhook-First)
+# Phase 6 — Task 10: Notification Channels (Webhook-First)
 
 ## Context
 

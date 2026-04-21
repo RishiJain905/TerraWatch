@@ -1,4 +1,4 @@
-# Phase 6 — Task 10: Zone Management Sidebar
+# Phase 6 — Task 8: Zone Management Sidebar
 
 ## Context
 
