@@ -39,3 +39,9 @@ export function formatTone(tone) {
   if (tone == null) return '\u2014'
   return tone.toFixed(2)
 }
+
+export function copyToClipboard(text) {
+  return navigator.clipboard.writeText(text).catch(() => {
+    // Fail silently — clipboard may be blocked (HTTP / permissions)
+  })
+}

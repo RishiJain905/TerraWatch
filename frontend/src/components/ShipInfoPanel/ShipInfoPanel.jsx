@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import '../InfoPanel/infoPanel.css'
 import './ShipInfoPanel.css'
-import { formatOptional, formatSpeed, formatHeading, formatCoord } from '../../utils/formatters'
+import { formatOptional, formatSpeed, formatHeading, formatCoord, copyToClipboard } from '../../utils/formatters'
 import { SHIP_TYPE_COLORS } from '../../utils/shipIcons'
 
 function formatLastSeen(timestamp) {
@@ -19,6 +20,14 @@ function formatLastSeen(timestamp) {
 export default function ShipInfoPanel({ ship, onClose }) {
   if (!ship) return null
 
+  const [copiedId, setCopiedId] = useState(null)
+
+  const handleCopy = (id, text) => {
+    copyToClipboard(text)
+    setCopiedId(id)
+    setTimeout(() => setCopiedId(null), 1500)
+  }
+
   const typeColor = SHIP_TYPE_COLORS[ship.ship_type]?.hex || SHIP_TYPE_COLORS.other?.hex
 
   return (
@@ -33,7 +42,10 @@ export default function ShipInfoPanel({ ship, onClose }) {
       <div className="ship-info-grid">
         <div className="info-row">
           <span className="info-label">MMSI</span>
-          <span className="info-value mono">{formatOptional(ship.id, null, '—')}</span>
+          <span className="info-value mono">
+            {formatOptional(ship.id, null, '—')}
+            {ship.id && <button type="button" className={`copy-btn${copiedId === 'mmsi' ? ' copied' : ''}`} onClick={() => handleCopy('mmsi', ship.id)} aria-label="Copy MMSI" title="Copy to clipboard">{copiedId === 'mmsi' ? 'COPIED!' : 'COPY'}</button>}
+          </span>
         </div>
         <div className="info-row">
           <span className="info-label">Type</span>

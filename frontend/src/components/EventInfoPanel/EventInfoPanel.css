@@ -50,27 +50,4 @@
   border-color: rgba(232, 184, 74, 0.35);
 }
 
-/* ---------- Source link ---------- */
 
-.source-link {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 10px;
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: var(--panel-accent);
-  background: transparent;
-  border: 1px solid var(--line-strong);
-  border-radius: 2px;
-  text-decoration: none;
-  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
-}
-
-.source-link:hover {
-  background: var(--panel-accent);
-  color: var(--bg-0);
-  border-color: var(--panel-accent);
-  text-decoration: none;
-}

@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import '../InfoPanel/infoPanel.css'
 import './ConflictInfoPanel.css'
-import { formatOptional, formatTone, formatCoord } from '../../utils/formatters'
+import { formatOptional, formatTone, formatCoord, copyToClipboard } from '../../utils/formatters'
 
 function formatDate(dateStr) {
   if (dateStr == null || dateStr === '') return '—'
@@ -22,6 +23,15 @@ function toneBadgeClass(tone) {
 
 export default function ConflictInfoPanel({ conflict, onClose }) {
   if (!conflict) return null
+
+  const [copiedId, setCopiedId] = useState(null)
+
+  const handleCopy = (id, text) => {
+    copyToClipboard(text).then(() => {
+      setCopiedId(id)
+      setTimeout(() => setCopiedId(null), 1500)
+    })
+  }
 
   return (
     <div className="plane-info-panel" data-type="conflict">
@@ -46,6 +56,23 @@ export default function ConflictInfoPanel({ conflict, onClose }) {
           <span className="info-value">{formatOptional(conflict.category, null, '—')}</span>
         </div>
         <div className="info-row">
+          <span className="info-label">ID</span>
+          <span className="info-value mono">
+            {formatOptional(conflict.id?.replace(/^gdelt_/, ''), null, '—')}
+            {conflict.id && (
+              <button
+                type="button"
+                className={`copy-btn${copiedId === 'conflict-id' ? ' copied' : ''}`}
+                onClick={() => handleCopy('conflict-id', conflict.id.replace(/^gdelt_/, ''))}
+                aria-label="Copy conflict ID"
+                title="Copy to clipboard"
+              >
+                {copiedId === 'conflict-id' ? 'COPIED!' : 'COPY'}
+              </button>
+            )}
+          </span>
+        </div>
+        <div className="info-row">
           <span className="info-label">Date</span>
           <span className="info-value">{formatDate(conflict.date)}</span>
         </div>
@@ -58,12 +85,13 @@ export default function ConflictInfoPanel({ conflict, onClose }) {
         {conflict.source_url ? (
           <div className="info-row full-width">
             <a
-              className="source-link"
+              className="info-external-link"
               href={conflict.source_url}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label="View source (opens in new tab)"
             >
-              VIEW SOURCE →
+              View source <span aria-hidden="true">↗</span>
             </a>
           </div>
         ) : (

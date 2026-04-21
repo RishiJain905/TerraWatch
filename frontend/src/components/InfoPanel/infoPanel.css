@@ -114,6 +114,64 @@
   text-overflow: ellipsis;
 }
 
+/* ---------- Copy button ---------- */
+
+.copy-btn {
+  margin-left: 8px;
+  padding: 2px 8px;
+  min-width: 22px;
+  min-height: 22px;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-2);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
+  vertical-align: middle;
+}
+
+.copy-btn:hover {
+  border-color: var(--panel-accent);
+  color: var(--text-0);
+  background: var(--bg-2);
+}
+
+.copy-btn.copied {
+  border-color: var(--accent-ok);
+  color: var(--accent-ok);
+  background: rgba(95, 207, 138, 0.08);
+}
+
+/* ---------- External link ---------- */
+
+.info-external-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--panel-accent);
+  text-decoration: none;
+  transition: color 140ms ease, text-decoration 140ms ease;
+}
+
+.info-external-link:hover {
+  color: var(--text-0);
+  text-decoration: underline;
+}
+
+.info-external-link::after {
+  content: '\2197';
+  font-size: 11px;
+}
+
 /* Ship type dot in header — keep circular for identification */
 .ship-type-dot {
   display: inline-block;

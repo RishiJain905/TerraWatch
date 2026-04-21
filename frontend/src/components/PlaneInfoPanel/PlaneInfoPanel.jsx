@@ -1,9 +1,18 @@
-import { formatOptional, formatAltitude, formatSpeed, formatHeading, formatCoord, formatTimestamp } from '../../utils/formatters'
+import { useState } from 'react'
+import { formatOptional, formatAltitude, formatSpeed, formatHeading, formatCoord, formatTimestamp, copyToClipboard } from '../../utils/formatters'
 import '../InfoPanel/infoPanel.css'
 import './PlaneInfoPanel.css'
 
 export default function PlaneInfoPanel({ plane, onClose }) {
   if (!plane) return null
+
+  const [copiedId, setCopiedId] = useState(null)
+
+  const handleCopy = (id, text) => {
+    copyToClipboard(text)
+    setCopiedId(id)
+    setTimeout(() => setCopiedId(null), 1500)
+  }
 
   return (
     <div className="plane-info-panel" data-type="plane">
@@ -17,11 +26,17 @@ export default function PlaneInfoPanel({ plane, onClose }) {
       <div className="plane-info-grid">
         <div className="info-row">
           <span className="info-label">ICAO24</span>
-          <span className="info-value mono">{formatOptional(plane.id, null, '—')}</span>
+          <span className="info-value mono">
+            {formatOptional(plane.id, null, '—')}
+            {plane.id && <button type="button" className={`copy-btn${copiedId === 'icao24' ? ' copied' : ''}`} onClick={() => handleCopy('icao24', plane.id)} aria-label="Copy ICAO24" title="Copy to clipboard">{copiedId === 'icao24' ? 'COPIED!' : 'COPY'}</button>}
+          </span>
         </div>
         <div className="info-row">
           <span className="info-label">Callsign</span>
-          <span className="info-value">{formatOptional(plane.callsign, null, '—')}</span>
+          <span className="info-value">
+            {formatOptional(plane.callsign, null, '—')}
+            {plane.callsign && <button type="button" className={`copy-btn${copiedId === 'callsign' ? ' copied' : ''}`} onClick={() => handleCopy('callsign', plane.callsign)} aria-label="Copy callsign" title="Copy to clipboard">{copiedId === 'callsign' ? 'COPIED!' : 'COPY'}</button>}
+          </span>
         </div>
         <div className="info-row">
           <span className="info-label">Altitude</span>
