@@ -1,12 +1,16 @@
 import asyncio
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import aiosqlite
 
 from app.config import settings
 
-DATABASE_PATH = "./terrawatch.db"
+_backend_root = Path(__file__).resolve().parents[2]
+_project_root = _backend_root.parent if _backend_root.name == "backend" else _backend_root
+DATABASE_PATH = os.getenv("TERRAWATCH_DB_PATH", str(_project_root / "terrawatch.db"))
 
 _db_instance: aiosqlite.Connection | None = None
 _db_write_lock: asyncio.Lock | None = None

@@ -1,8 +1,14 @@
 import importlib
 import os
 import unittest
+from unittest.mock import patch
 
 import app.config as config_module
+
+
+def reload_config_without_dotenv():
+    with patch("dotenv.load_dotenv", return_value=False):
+        return importlib.reload(config_module)
 
 
 class ConfigDefaultsTests(unittest.TestCase):
@@ -22,7 +28,7 @@ class ConfigDefaultsTests(unittest.TestCase):
             for key in keys:
                 os.environ.pop(key, None)
 
-            reloaded = importlib.reload(config_module)
+            reloaded = reload_config_without_dotenv()
 
             self.assertEqual(reloaded.settings.ADSBLOL_API_URL, "")
             self.assertEqual(reloaded.settings.ADSBLOL_BASE_URL, "https://api.adsb.lol")
@@ -52,7 +58,7 @@ class ConfigDefaultsTests(unittest.TestCase):
             for key in keys:
                 os.environ.pop(key, None)
 
-            reloaded = importlib.reload(config_module)
+            reloaded = reload_config_without_dotenv()
 
             self.assertEqual(reloaded.settings.STALE_PLANE_SECONDS, 300)
             self.assertEqual(reloaded.settings.STALE_SHIP_SECONDS, 600)
@@ -81,7 +87,7 @@ class ConfigDefaultsTests(unittest.TestCase):
             os.environ["STALE_EVENT_SECONDS"] = "1800"
             os.environ["STALE_CONFLICT_SECONDS"] = "7200"
 
-            reloaded = importlib.reload(config_module)
+            reloaded = reload_config_without_dotenv()
 
             self.assertEqual(reloaded.settings.STALE_PLANE_SECONDS, 60)
             self.assertEqual(reloaded.settings.STALE_SHIP_SECONDS, 120)

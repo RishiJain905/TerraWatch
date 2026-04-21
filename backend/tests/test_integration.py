@@ -109,7 +109,7 @@ class TestPlaneEndpoints(IntegrationTestBase):
 # ---------------------------------------------------------------------------
 
 
-class TestWebSocketHeartbeat(unittest.IsolatedAsyncioTestCase):
+class TestWebSocketHeartbeat(IntegrationTestBase):
     async def test_websocket_accepts_connection_and_sends_heartbeat(self):
         """
         Connect to /ws via starlette TestClient and verify a heartbeat
@@ -134,6 +134,7 @@ class TestWebSocketHeartbeat(unittest.IsolatedAsyncioTestCase):
         from app.api import websocket
 
         websocket.connected_clients.clear()
+        await super().asyncTearDown()
 
 
 # ---------------------------------------------------------------------------
