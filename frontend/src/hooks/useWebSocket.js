@@ -1,6 +1,55 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 
-const WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`
+const DEV_BACKEND_PORT = '8000'
+const RECONNECT_DELAY_MS = 3000
+
+function normalizeWsUrl(url) {
+  if (!url) {
+    return null
+  }
+
+  const trimmed = url.trim()
+  if (!trimmed) {
+    return null
+  }
+
+  if (trimmed.startsWith('ws://') || trimmed.startsWith('wss://')) {
+    return trimmed
+  }
+
+  if (trimmed.startsWith('http://')) {
+    return `ws://${trimmed.slice('http://'.length)}`
+  }
+
+  if (trimmed.startsWith('https://')) {
+    return `wss://${trimmed.slice('https://'.length)}`
+  }
+
+  if (trimmed.startsWith('/')) {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    return `${protocol}//${window.location.host}${trimmed}`
+  }
+
+  return `ws://${trimmed}`
+}
+
+function resolveWsUrl() {
+  const envUrl = normalizeWsUrl(import.meta.env.VITE_WS_URL)
+  if (envUrl) {
+    return envUrl
+  }
+
+  // In local dev, prefer direct backend socket to avoid Vite ws proxy noise.
+  if (import.meta.env.DEV) {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    return `${protocol}//${window.location.hostname}:${DEV_BACKEND_PORT}/ws`
+  }
+
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${protocol}//${window.location.host}/ws`
+}
+
+const WS_URL = resolveWsUrl()
 
 export function useWebSocket(onMessage) {
   const [connected, setConnected] = useState(false)
@@ -9,11 +58,10 @@ export function useWebSocket(onMessage) {
   const onMessageRef = useRef(onMessage)
   const reconnectTimerRef = useRef(null)
   // Generation counter: each connect() call increments this.
-  // Cleanup only closes the WS if the generation still matches —
-  // prevents React StrictMode / hot-reload from killing the NEW connection.
+  // Cleanup only closes the WS if the generation still matches.
+  // This prevents StrictMode / hot-reload from killing the new connection.
   const generationRef = useRef(0)
 
-  // Keep onMessage ref current
   useEffect(() => {
     onMessageRef.current = onMessage
   }, [onMessage])
@@ -26,15 +74,14 @@ export function useWebSocket(onMessage) {
 
       ws.onopen = () => {
         setConnected(true)
-        console.log('[WS] Connected to TerraWatch backend')
+        console.log('[WS] Connected to TerraWatch backend', { url: WS_URL })
       }
 
       ws.onclose = () => {
         setConnected(false)
-        // Only reconnect if this is still the active generation
         if (generationRef.current === gen) {
-          console.log('[WS] Disconnected, reconnecting in 3s...')
-          reconnectTimerRef.current = setTimeout(connect, 3000)
+          console.log('[WS] Disconnected, reconnecting in 3s...', { url: WS_URL })
+          reconnectTimerRef.current = setTimeout(connect, RECONNECT_DELAY_MS)
         }
       }
 
@@ -58,7 +105,7 @@ export function useWebSocket(onMessage) {
     } catch (e) {
       console.error('[WS] Connection failed:', e)
       if (generationRef.current === gen) {
-        reconnectTimerRef.current = setTimeout(connect, 3000)
+        reconnectTimerRef.current = setTimeout(connect, RECONNECT_DELAY_MS)
       }
     }
   }, [])
@@ -66,14 +113,12 @@ export function useWebSocket(onMessage) {
   useEffect(() => {
     connect()
     return () => {
-      // Increment generation so stale reconnect timers and onclose
-      // handlers know they're outdated and don't fire.
       generationRef.current++
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current)
       }
       if (wsRef.current) {
-        wsRef.current.close()
+        wsRef.current.close(1000, 'cleanup')
       }
     }
   }, [connect])
