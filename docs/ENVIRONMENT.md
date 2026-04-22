@@ -1,43 +1,68 @@
 # Environment Variables
 
-All configuration is driven by environment variables (or a `.env` file at the repo root).
+TerraWatch reads configuration from environment variables and a repo-root `.env` file.
 
-## Data Source Configuration
-
-| Variable | Default | Description |
-|---|---|---|
-| `ADSBLOL_BASE_URL` | `https://api.adsb.lol` | Base URL for the ADSB.lol API |
-| `ADSBLOL_API_URL` | `""` | Full ADSB.lol API URL (overrides `ADSBLOL_BASE_URL` if set) |
-| `ADSBLOL_LAT` | `37.6188056` | Latitude center for ADSB.lol radius queries |
-| `ADSBLOL_LON` | `-122.3754167` | Longitude center for ADSB.lol radius queries |
-| `ADSBLOL_RADIUS_NM` | `250` | Radius in nautical miles for ADSB.lol queries |
-| `AISSTREAM_API_KEY` | `""` | API key for AISStream real-time ship tracking |
-| `OPENSKY_CLIENT_ID` | `""` | OpenSky Network OAuth2 client ID |
-| `OPENSKY_CLIENT_SECRET` | `""` | OpenSky Network OAuth2 client secret |
-
-## Data Refresh Intervals
+## Runtime
 
 | Variable | Default | Description |
 |---|---|---|
-| `ADSB_REFRESH_SECONDS` | `120` | Seconds between ADSB plane data refreshes |
-| `ADSBLOL_REFRESH_SECONDS` | `120` | Seconds between ADSB.lol plane data refreshes |
-| `AIS_REFRESH_SECONDS` | `60` | Seconds between AIS ship data refreshes |
-| `AISSTREAM_BATCH_INTERVAL_SECONDS` | `30` | Seconds between AISStream batch emissions |
-| `GDELT_REFRESH_SECONDS` | `900` | Seconds between GDELT event data refreshes (15 min) |
+| `PYTHON_ENV` | `development` | Runtime environment flag |
+| `TERRAWATCH_DB_PATH` | `terrawatch.db` in the repo root | Override the SQLite database path |
 
-## Stale Data Thresholds
-
-These control how old data must be before it is considered stale and cleaned up from the database. Values are in **seconds**.
+## Aircraft
 
 | Variable | Default | Description |
 |---|---|---|
-| `STALE_PLANE_SECONDS` | `300` | Seconds before plane data is considered stale (for DB cleanup) |
-| `STALE_SHIP_SECONDS` | `600` | Seconds before ship data is considered stale (for DB cleanup) |
-| `STALE_EVENT_SECONDS` | `3600` | Seconds before event data is considered stale (for DB cleanup) |
-| `STALE_CONFLICT_SECONDS` | `3600` | Seconds before conflict data is considered stale (for DB cleanup) |
+| `ADSBLOL_API_URL` | `""` | Full ADSB.lol API URL override |
+| `ADSBLOL_BASE_URL` | `https://api.adsb.lol` | Base URL for ADSB.lol point queries |
+| `ADSBLOL_LAT` | `37.6188056` | Latitude center for ADSB.lol regional queries |
+| `ADSBLOL_LON` | `-122.3754167` | Longitude center for ADSB.lol regional queries |
+| `ADSBLOL_RADIUS_NM` | `250` | Query radius in nautical miles |
+| `ADSBLOL_REFRESH_SECONDS` | `120` | ADSB.lol refresh interval |
+| `ADSB_REFRESH_SECONDS` | `120` | OpenSky refresh interval |
+| `OPENSKY_CLIENT_ID` | `""` | OpenSky OAuth2 client ID |
+| `OPENSKY_CLIENT_SECRET` | `""` | OpenSky OAuth2 client secret |
+| `AVIATIONSTACK_ACCESS_KEY` | `""` | Aviationstack route enrichment API key |
+| `AVIATIONSTACK_BASE_URL` | `https://api.aviationstack.com/v1` | Aviationstack base URL |
+| `AVIATIONSTACK_ROUTE_CACHE_TTL_SECONDS` | `600` | Cache TTL for plane route lookups |
+| `AVIATIONSTACK_AIRPORT_CACHE_TTL_SECONDS` | `86400` | Cache TTL for airport lookups |
 
-## General
+## Ships
 
 | Variable | Default | Description |
 |---|---|---|
-| `PYTHON_ENV` | `development` | Runtime environment (`development` / `production`) |
+| `AISSTREAM_API_KEY` | `""` | AISStream API key |
+| `AISSTREAM_BATCH_INTERVAL_SECONDS` | `30` | Batch interval for AISStream messages |
+| `AIS_REFRESH_SECONDS` | `60` | Digitraffic ship refresh interval |
+
+## Events
+
+| Variable | Default | Description |
+|---|---|---|
+| `GDELT_REFRESH_SECONDS` | `900` | GDELT refresh interval |
+
+## Stale Cleanup
+
+These values drive backend cleanup and the `/api/stale-thresholds` endpoint.
+
+| Variable | Default | Description |
+|---|---|---|
+| `STALE_PLANE_SECONDS` | `300` | Plane cleanup threshold |
+| `STALE_SHIP_SECONDS` | `600` | Ship cleanup threshold |
+| `STALE_EVENT_SECONDS` | `3600` | Event cleanup threshold |
+| `STALE_CONFLICT_SECONDS` | `3600` | Conflict cleanup threshold |
+
+## Frontend
+
+| Variable | Default | Description |
+|---|---|---|
+| `VITE_API_URL` | `http://localhost:8000` | Base API URL used by the frontend |
+| `VITE_WS_URL` | `ws://localhost:8000` | WebSocket URL used by the frontend |
+| `VITE_PROXY_TARGET` | `http://backend:8000` | Docker Vite proxy target for `/api` |
+| `VITE_WS_PROXY_TARGET` | `ws://backend:8000` | Docker Vite proxy target for `/ws` |
+
+## Notes
+
+- `VITE_API_URL` and `VITE_WS_URL` are the primary frontend runtime variables.
+- The proxy target variables are only needed for Docker or other non-localhost dev setups.
+- The backend loads `.env` from the repo root first, then falls back to the current working directory.
