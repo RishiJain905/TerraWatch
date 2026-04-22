@@ -116,7 +116,7 @@ class TestShipEndpoints(IntegrationTestBase):
 # ---------------------------------------------------------------------------
 
 
-class TestWebSocketShipBroadcast(unittest.IsolatedAsyncioTestCase):
+class TestWebSocketShipBroadcast(IntegrationTestBase):
     async def test_websocket_accepts_connection_and_receives_heartbeat(self):
         """
         Connect to /ws and verify the initial heartbeat arrives immediately.
@@ -136,6 +136,7 @@ class TestWebSocketShipBroadcast(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         from app.api import websocket
         websocket.connected_clients.clear()
+        await super().asyncTearDown()
 
 
 # ---------------------------------------------------------------------------

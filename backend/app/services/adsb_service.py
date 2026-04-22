@@ -8,12 +8,61 @@ Free registration: https://opensky-network.org/register
 from __future__ import annotations
 
 import asyncio
+import logging
 import httpx
 from datetime import datetime, timezone, timedelta
 from math import isfinite
 from typing import Any, List, Optional
 
 from app.core.models import Plane, utc_now_iso
+
+logger = logging.getLogger(__name__)
+
+
+def _get_retry_after_seconds(response: httpx.Response) -> int | None:
+    raw_value = (
+        response.headers.get("X-Rate-Limit-Retry-After-Seconds")
+        or response.headers.get("Retry-After")
+        or ""
+    ).strip()
+    if not raw_value:
+        return None
+
+    try:
+        retry_after_seconds = int(raw_value)
+    except ValueError:
+        return None
+
+    return retry_after_seconds if retry_after_seconds >= 0 else None
+
+
+def _log_opensky_rate_limit_hint(exc: httpx.HTTPStatusError) -> None:
+    """429 = too many requests in a window or credits exhausted for the day; not a bug in TerraWatch."""
+    if exc.response.status_code != 429:
+        return
+    retry_after_seconds = _get_retry_after_seconds(exc.response)
+    retry_after = (
+        str(retry_after_seconds) if retry_after_seconds is not None else "(not sent)"
+    )
+    if retry_after_seconds is not None:
+        retry_at_utc = datetime.now(timezone.utc) + timedelta(seconds=retry_after_seconds)
+        retry_at_local = retry_at_utc.astimezone()
+        retry_at_local_text = retry_at_local.isoformat()
+        retry_at_utc_text = retry_at_utc.isoformat()
+    else:
+        retry_at_local_text = "(unknown)"
+        retry_at_utc_text = "(unknown)"
+    logger.warning(
+        "OpenSky 429: you are being rate-limited (too frequent polls and/or daily credit cap). "
+        "retry_after_seconds=%s retry_at_local=%s retry_at_utc=%s. "
+        "Mitigations: increase ADSB_REFRESH_SECONDS in .env (e.g. 90 or 120), "
+        "run only one backend hitting OpenSky, wait for the window to reset; "
+        "see https://openskynetwork.github.io/opensky-api/rest.html",
+        retry_after,
+        retry_at_local_text,
+        retry_at_utc_text,
+    )
+
 
 OPENSKY_STATES_API = "https://opensky-network.org/api/states/all"
 TOKEN_URL = "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token"
@@ -166,7 +215,10 @@ async def fetch_planes(
         client_secret: OpenSky OAuth2 client_secret
     """
     if not client_id or not client_secret:
-        # Fallback to unauthenticated request (limited rate limits)
+        logger.info(
+            "OpenSky: OPENSKY_CLIENT_ID/SECRET not set; using anonymous /states/all "
+            "(strict limits — set credentials in TerraWatch/.env for Docker)"
+        )
         return await _fetch_planes_unauthenticated()
 
     try:
@@ -178,7 +230,18 @@ async def fetch_planes(
             response = await client.get(OPENSKY_STATES_API, headers=headers)
             response.raise_for_status()
             data = response.json()
-    except (httpx.HTTPError, ValueError):
+    except (httpx.HTTPError, ValueError) as e:
+        logger.warning(
+            "OpenSky authenticated request failed (token or /states/all): %s",
+            e,
+        )
+        if isinstance(e, httpx.HTTPStatusError):
+            logger.warning(
+                "OpenSky HTTP %s body (truncated): %s",
+                e.response.status_code,
+                (e.response.text or "")[:400],
+            )
+            _log_opensky_rate_limit_hint(e)
         return []
 
     if not isinstance(data, dict):
@@ -209,7 +272,15 @@ async def _fetch_planes_unauthenticated() -> List[dict]:
             response = await client.get(OPENSKY_STATES_API)
             response.raise_for_status()
             data = response.json()
-    except (httpx.HTTPError, ValueError):
+    except (httpx.HTTPError, ValueError) as e:
+        logger.warning("OpenSky anonymous /states/all failed: %s", e)
+        if isinstance(e, httpx.HTTPStatusError):
+            logger.warning(
+                "OpenSky HTTP %s body (truncated): %s",
+                e.response.status_code,
+                (e.response.text or "")[:400],
+            )
+            _log_opensky_rate_limit_hint(e)
         return []
 
     if not isinstance(data, dict):

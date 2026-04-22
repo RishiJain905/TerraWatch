@@ -1,10 +1,12 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 import httpx
 
 from app.core import database
+from app.core.models import PlaneRoute
 from app.main import app
 
 
@@ -85,3 +87,69 @@ class PlaneRouteTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.json())
+
+    async def test_get_plane_route_returns_404_when_plane_is_missing(self):
+        response = await self._get("/api/planes/missing01/route")
+
+        self.assertEqual(response.status_code, 404)
+
+    async def test_get_plane_route_returns_error_payload_when_access_key_missing(self):
+        plane = {
+            "id": "abc123",
+            "lat": 10.0,
+            "lon": 20.0,
+            "alt": 1000,
+            "heading": 90.0,
+            "callsign": "TEST123",
+            "squawk": "7000",
+            "speed": 250.0,
+            "timestamp": "2026-04-10T21:00:00+00:00",
+        }
+        await database.upsert_plane(self.db, plane)
+
+        with patch("app.config.settings.AVIATIONSTACK_ACCESS_KEY", ""):
+            response = await self._get("/api/planes/abc123/route")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["plane_id"], "abc123")
+        self.assertEqual(payload["provider"], "aviationstack")
+        self.assertEqual(payload["status"], "error")
+        self.assertEqual(payload["resolved_by"], "none")
+
+    async def test_get_plane_route_returns_service_payload_for_matching_plane(self):
+        plane = {
+            "id": "abc123",
+            "lat": 10.0,
+            "lon": 20.0,
+            "alt": 1000,
+            "heading": 90.0,
+            "callsign": "TEST123",
+            "squawk": "7000",
+            "speed": 250.0,
+            "timestamp": "2026-04-10T21:00:00+00:00",
+        }
+        await database.upsert_plane(self.db, plane)
+
+        route = PlaneRoute(
+            plane_id="abc123",
+            resolved_by="icao24",
+            status="ok",
+            provider="aviationstack",
+            flight_iata="AA1004",
+            flight_icao="AAL1004",
+            airline_name="American Airlines",
+            airline_iata="AA",
+            airline_icao="AAL",
+            last_updated="2026-04-10T21:10:00+00:00",
+        )
+
+        with patch(
+            "app.api.routes.planes.AviationstackService.get_plane_route",
+            AsyncMock(return_value=route),
+        ) as route_mock:
+            response = await self._get("/api/planes/abc123/route")
+
+        route_mock.assert_awaited_once()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), route.model_dump())

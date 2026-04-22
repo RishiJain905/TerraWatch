@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import Globe from './components/Globe/Globe'
 import Header from './components/Header/Header'
 import Sidebar from './components/Sidebar/Sidebar'
@@ -21,10 +21,20 @@ function App() {
 
   const handleFilterHooksReady = useCallback((getter) => setFilterHooksGetter(getter), [])
 
+  const [, setFilterUiEpoch] = useState(0)
+  const bumpSidebarForFilters = useCallback(() => {
+    setFilterUiEpoch((n) => n + 1)
+  }, [])
+
   const [selectedPlane, setSelectedPlane] = useState(null)
+  const [selectedPlaneRoute, setSelectedPlaneRoute] = useState(null)
+  const [selectedPlaneRouteStatus, setSelectedPlaneRouteStatus] = useState('idle')
   const [selectedShip, setSelectedShip] = useState(null)
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [selectedConflict, setSelectedConflict] = useState(null)
+  const selectedPlaneRouteRequestSeq = useRef(0)
+
+  const globeRef = useRef(null)
 
   useEffect(() => {
     fetch('/api/metadata')
@@ -35,6 +45,126 @@ function App() {
       .then(data => setBackendStatus(data.status || 'ok'))
       .catch(() => setBackendStatus('error'))
   }, [])
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const t = e.target
+      if (
+        t.tagName === 'INPUT' ||
+        t.tagName === 'TEXTAREA' ||
+        t.tagName === 'SELECT' ||
+        t.isContentEditable ||
+        t.closest('[role="combobox"]')
+      ) {
+        return
+      }
+
+      switch (e.key) {
+        case 'Escape':
+          setSelectedPlane(null)
+          setSelectedShip(null)
+          setSelectedEvent(null)
+          setSelectedConflict(null)
+          break
+        case 'r':
+        case 'R':
+          globeRef.current?.resetView()
+          break
+        case 'ArrowLeft':
+          globeRef.current?.rotateGlobe(-15, 0)
+          break
+        case 'ArrowRight':
+          globeRef.current?.rotateGlobe(15, 0)
+          break
+        case 'ArrowUp':
+          globeRef.current?.rotateGlobe(0, 5)
+          break
+        case 'ArrowDown':
+          globeRef.current?.rotateGlobe(0, -5)
+          break
+        case '+':
+        case '=':
+          globeRef.current?.zoomGlobe(1)
+          break
+        case '-':
+          globeRef.current?.zoomGlobe(-1)
+          break
+        case '1':
+          toggleLayer('planes')
+          break
+        case '2':
+          toggleLayer('ships')
+          break
+        case '3':
+          toggleLayer('events')
+          break
+        case '4':
+          toggleLayer('conflicts')
+          break
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  useEffect(() => {
+    if (!selectedPlane?.id) {
+      selectedPlaneRouteRequestSeq.current += 1
+      setSelectedPlaneRoute(null)
+      setSelectedPlaneRouteStatus('idle')
+      return undefined
+    }
+
+    const controller = new AbortController()
+    const requestSeq = ++selectedPlaneRouteRequestSeq.current
+
+    setSelectedPlaneRoute(null)
+    setSelectedPlaneRouteStatus('loading')
+
+    const loadPlaneRoute = async () => {
+      try {
+        const response = await fetch(`/api/planes/${encodeURIComponent(selectedPlane.id)}/route`, {
+          signal: controller.signal,
+        })
+
+        const routeData = await response.json().catch(() => null)
+        if (controller.signal.aborted || requestSeq !== selectedPlaneRouteRequestSeq.current) {
+          return
+        }
+
+        if (response.ok) {
+          setSelectedPlaneRoute(routeData)
+          setSelectedPlaneRouteStatus(routeData?.status ?? 'ok')
+          return
+        }
+
+        setSelectedPlaneRoute(routeData && typeof routeData === 'object' ? routeData : null)
+        setSelectedPlaneRouteStatus(
+          routeData?.status && routeData.status !== 'ok'
+            ? routeData.status
+            : response.status === 404
+              ? 'not_found'
+              : response.status === 429
+                ? 'rate_limited'
+                : 'error'
+        )
+      } catch {
+        if (controller.signal.aborted || requestSeq !== selectedPlaneRouteRequestSeq.current) {
+          return
+        }
+
+        setSelectedPlaneRoute(null)
+        setSelectedPlaneRouteStatus('error')
+      }
+    }
+
+    loadPlaneRoute()
+
+    return () => {
+      controller.abort()
+    }
+  }, [selectedPlane?.id])
 
   const toggleLayer = useCallback((layer) => {
     setLayers(prev => ({ ...prev, [layer]: !prev[layer] }))
@@ -64,18 +194,31 @@ function App() {
       setSelectedEvent(null)
     }
     console.log(`Selected ${type}:`, entity)
+    globeRef.current?.flyTo(entity)
   }, [])
 
   return (
     <div className="app">
       <Header backendStatus={backendStatus} />
       <div className="main-content">
-        <Sidebar layers={layers} onToggleLayer={toggleLayer} filterHooks={filterHooksGetter ? filterHooksGetter() : null} />
+        <Sidebar layers={layers} onToggleLayer={toggleLayer} filterHooks={typeof filterHooksGetter === 'function' ? filterHooksGetter() : null} />
         <div className="globe-wrapper">
-          <Globe layers={layers} onEntityClick={handleEntityClick} onFilterHooksReady={handleFilterHooksReady} />
+          <Globe
+            ref={globeRef}
+            layers={layers}
+            onEntityClick={handleEntityClick}
+            onFilterHooksReady={handleFilterHooksReady}
+            onFiltersChange={bumpSidebarForFilters}
+            selectedPlane={selectedPlane}
+            selectedPlaneRoute={selectedPlaneRoute}
+            selectedPlaneRouteStatus={selectedPlaneRouteStatus}
+            selectedShip={selectedShip}
+          />
           {selectedPlane && (
             <PlaneInfoPanel
               plane={selectedPlane}
+              route={selectedPlaneRoute}
+              routeStatus={selectedPlaneRouteStatus}
               onClose={() => setSelectedPlane(null)}
             />
           )}

@@ -236,6 +236,12 @@ class DatabaseHelperTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(deleted_ids, ["stale-ship"])
         self.assertEqual(remaining_ids, ["fresh-ship"])
 
+    def test_stale_threshold_helpers_clamp_to_one_or_more(self):
+        self.assertEqual(database._minutes_from_seconds(30), 1)
+        self.assertEqual(database._minutes_from_seconds(61), 2)
+        self.assertEqual(database._days_from_seconds(3600), 1)
+        self.assertEqual(database._days_from_seconds(86401), 2)
+
 
 class DatabaseMigrationTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):

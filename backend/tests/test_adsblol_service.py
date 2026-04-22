@@ -6,6 +6,8 @@ import httpx
 
 from app.services import adsblol_service
 
+TEST_ADSBLOL_API_URL = "https://example.test/aircraft"
+
 
 class FakeAsyncClient:
     def __init__(self, response=None, exception=None):
@@ -27,6 +29,52 @@ class FakeAsyncClient:
 
 
 class AdsblolServiceTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.original_api_url = adsblol_service.settings.ADSBLOL_API_URL
+        self.original_constant = adsblol_service.ADSBLOL_AIRCRAFT_API
+        adsblol_service.settings.ADSBLOL_API_URL = TEST_ADSBLOL_API_URL
+        adsblol_service.ADSBLOL_AIRCRAFT_API = TEST_ADSBLOL_API_URL
+
+    def tearDown(self):
+        adsblol_service.settings.ADSBLOL_API_URL = self.original_api_url
+        adsblol_service.ADSBLOL_AIRCRAFT_API = self.original_constant
+
+    async def test_fetch_planes_uses_point_endpoint_when_region_configured(self):
+        payload = {
+            "ctime": 1712751234,
+            "ac": [
+                {
+                    "hex": "76cccd",
+                    "flight": " TEST123 ",
+                    "lat": 37.6188056,
+                    "lon": -122.3754167,
+                    "alt_baro": 34000,
+                    "track": 271.2,
+                    "gs": 451.5,
+                    "squawk": "1234",
+                }
+            ],
+        }
+        response = Mock()
+        response.raise_for_status = Mock()
+        response.json = Mock(return_value=payload)
+        fake_client = FakeAsyncClient(response=response)
+        service = adsblol_service.AdsblolService(
+            api_url="https://api.adsb.lol/aircraft/json",
+            query_lat=37.6188056,
+            query_lon=-122.3754167,
+            query_radius_nm=50,
+        )
+
+        with patch("app.services.adsblol_service.httpx.AsyncClient", return_value=fake_client):
+            planes = await service.fetch_planes()
+
+        self.assertEqual(
+            fake_client.requested_url,
+            "https://api.adsb.lol/v2/point/37.6188056/-122.3754167/50",
+        )
+        self.assertEqual(planes[0]["id"], "76cccd")
+
     async def test_fetch_planes_parses_response(self):
         payload = {
             "last_timestamp": 1712751234,
@@ -89,6 +137,36 @@ class AdsblolServiceTests(unittest.IsolatedAsyncioTestCase):
                     "dir": 90,
                     "speed": 320,
                     "last_timestamp": 1712700000,
+                }
+            ],
+        }
+        response = Mock()
+        response.raise_for_status = Mock()
+        response.json = Mock(return_value=payload)
+
+        with patch(
+            "app.services.adsblol_service.httpx.AsyncClient",
+            return_value=FakeAsyncClient(response=response),
+        ):
+            planes = await adsblol_service.fetch_planes()
+
+        self.assertEqual(
+            planes[0]["timestamp"],
+            datetime.fromtimestamp(1712759999, tz=timezone.utc).isoformat(),
+        )
+
+    async def test_fetch_planes_converts_millisecond_ctime_from_v2_api(self):
+        payload = {
+            "ctime": 1712759999000,
+            "ac": [
+                {
+                    "hex": "abc123",
+                    "flight": "FALLBACK1",
+                    "lat": 40.0,
+                    "lon": -70.0,
+                    "alt_baro": 12000,
+                    "track": 90,
+                    "gs": 320,
                 }
             ],
         }

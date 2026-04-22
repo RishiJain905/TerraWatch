@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { TRAIL_MAX_POINTS } from '../utils/constants'
 
 const initialPlanes = []
 
@@ -9,11 +10,15 @@ const DEFAULT_FILTERS = {
   speedMin: 0,
 }
 
-export function usePlanes() {
+export function usePlanes(selectedPlaneId = null) {
   const [planes, setPlanes] = useState(initialPlanes)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
+  const [lastUpdated, setLastUpdated] = useState(null)
+  const planesRef = useRef(initialPlanes)
+  const selectedPlaneIdRef = useRef(selectedPlaneId)
+  const trailStoreRef = useRef({})
 
   const filteredPlanes = useMemo(() => {
     return planes.filter(plane => {
@@ -31,6 +36,10 @@ export function usePlanes() {
       return true
     })
   }, [planes, filters])
+
+  useEffect(() => {
+    planesRef.current = planes
+  }, [planes])
 
   const updateFilter = useCallback((key, value) => {
     setFilters(prev => {
@@ -52,12 +61,54 @@ export function usePlanes() {
     })
   }, [])
 
+  const appendSelectedPlaneTrailPoint = useCallback((plane) => {
+    if (!plane || !selectedPlaneIdRef.current || plane.id !== selectedPlaneIdRef.current) {
+      return
+    }
+
+    if (!trailStoreRef.current[plane.id]) {
+      trailStoreRef.current[plane.id] = []
+    }
+
+    trailStoreRef.current[plane.id].push({
+      lon: plane.lon,
+      lat: plane.lat,
+      timestamp: Date.now(),
+    })
+
+    if (trailStoreRef.current[plane.id].length > TRAIL_MAX_POINTS) {
+      trailStoreRef.current[plane.id].shift()
+    }
+  }, [])
+
+  const seedSelectedPlaneTrail = useCallback((plane) => {
+    if (!plane || !selectedPlaneIdRef.current || plane.id !== selectedPlaneIdRef.current) {
+      trailStoreRef.current = {}
+      return
+    }
+
+    trailStoreRef.current = {
+      [plane.id]: [{
+        lon: plane.lon,
+        lat: plane.lat,
+        timestamp: Date.now(),
+      }],
+    }
+  }, [])
+
   const fetchPlanes = useCallback(async () => {
     try {
       const res = await fetch('/api/planes')
       if (!res.ok) throw new Error('Failed to fetch planes')
       const data = await res.json()
       setPlanes(data)
+      setLastUpdated(Date.now())
+      if (selectedPlaneIdRef.current) {
+        const selectedPlane = data.find(plane => plane.id === selectedPlaneIdRef.current)
+        if (selectedPlane) {
+          seedSelectedPlaneTrail(selectedPlane)
+        }
+      }
       setError(null)
     } catch (e) {
       console.warn('Initial plane fetch failed, WS will populate:', e.message)
@@ -65,7 +116,7 @@ export function usePlanes() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [seedSelectedPlaneTrail])
 
   const addPlane = useCallback((plane) => {
     setPlanes(prev => {
@@ -77,21 +128,48 @@ export function usePlanes() {
       }
       return [...prev, plane]
     })
-  }, [])
+    setLastUpdated(Date.now())
+
+    appendSelectedPlaneTrailPoint(plane)
+  }, [appendSelectedPlaneTrailPoint])
 
   const addPlanes = useCallback((incomingPlanes) => {
     // plane_batch is authoritative — replace entirely, don't merge
     setPlanes(incomingPlanes)
-  }, [])
+    setLastUpdated(Date.now())
+    if (selectedPlaneIdRef.current) {
+      const selectedPlane = incomingPlanes.find(plane => plane.id === selectedPlaneIdRef.current)
+      if (selectedPlane) {
+        appendSelectedPlaneTrailPoint(selectedPlane)
+      }
+    }
+  }, [appendSelectedPlaneTrailPoint])
 
   const removePlane = useCallback((planeId) => {
     setPlanes(prev => prev.filter(p => p.id !== planeId))
   }, [])
+
+  useEffect(() => {
+    selectedPlaneIdRef.current = selectedPlaneId ?? null
+
+    if (!selectedPlaneIdRef.current) {
+      trailStoreRef.current = {}
+      return
+    }
+
+    const selectedPlane = planesRef.current.find(plane => plane.id === selectedPlaneIdRef.current)
+    if (selectedPlane) {
+      seedSelectedPlaneTrail(selectedPlane)
+      return
+    }
+
+    trailStoreRef.current = {}
+  }, [selectedPlaneId, seedSelectedPlaneTrail])
 
   // Initial fetch
   useEffect(() => {
     fetchPlanes()
   }, [fetchPlanes])
 
-  return { planes, filteredPlanes, filters, updateFilter, loading, error, fetchPlanes, addPlane, addPlanes, removePlane }
+  return { planes, filteredPlanes, filters, updateFilter, loading, error, fetchPlanes, addPlane, addPlanes, removePlane, trailStoreRef, lastUpdated }
 }

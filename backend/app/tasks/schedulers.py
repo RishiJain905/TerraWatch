@@ -1,6 +1,7 @@
 """Background schedulers for periodic data refresh."""
 
 import asyncio
+from math import ceil
 import logging
 
 from typing import Any, Callable
@@ -40,10 +41,14 @@ from app.services.gdelt_service import fetch_events as fetch_gdelt_events
 
 logger = logging.getLogger(__name__)
 
+def _minutes_from_seconds(seconds: int) -> int:
+    return max(1, ceil(seconds / 60))
+
+
 PLANE_REFRESH_INTERVAL_SECONDS = settings.ADSB_REFRESH_SECONDS
-PLANE_STALE_AGE_MINUTES = 5
+PLANE_STALE_AGE_MINUTES = _minutes_from_seconds(settings.STALE_PLANE_SECONDS)
 SHIP_REFRESH_INTERVAL_SECONDS = settings.AIS_REFRESH_SECONDS
-SHIP_STALE_AGE_MINUTES = 10
+SHIP_STALE_AGE_MINUTES = _minutes_from_seconds(settings.STALE_SHIP_SECONDS)
 AISSTREAM_BATCH_INTERVAL_SECONDS = settings.AISSTREAM_BATCH_INTERVAL_SECONDS
 
 GDELT_REFRESH_SECONDS = settings.GDELT_REFRESH_SECONDS

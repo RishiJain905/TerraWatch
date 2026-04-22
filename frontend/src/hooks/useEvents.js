@@ -21,7 +21,6 @@ const DEFAULT_FILTERS = {
   ],
   toneMin: -10,
   toneMax: 10,
-  dateRange: 'all',
 }
 
 export function useEvents() {
@@ -29,6 +28,7 @@ export function useEvents() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
+  const [lastUpdated, setLastUpdated] = useState(null)
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -36,6 +36,7 @@ export function useEvents() {
       if (!res.ok) throw new Error('Failed to fetch events')
       const data = await res.json()
       setEvents(data)
+      setLastUpdated(Date.now())
       setError(null)
     } catch (e) {
       setError(e.message)
@@ -56,18 +57,18 @@ export function useEvents() {
       }
       return [...prev, event]
     })
+    setLastUpdated(Date.now())
   }, [])
 
   // Batch event set (for event_batch WebSocket messages)
   const addEvents = useCallback((eventList) => {
     if (!Array.isArray(eventList) || eventList.length === 0) return
     setEvents(eventList)
+    setLastUpdated(Date.now())
   }, [])
 
   // Filtered events based on current filters
   const filteredEvents = useMemo(() => {
-    const now = Date.now()
-
     return events.filter(event => {
       // Category filter — exclude events with empty category
       if (!event.category || !filters.categories.includes(event.category)) {
@@ -78,30 +79,6 @@ export function useEvents() {
       const tone = event.tone || 0
       if (tone < filters.toneMin || tone > filters.toneMax) {
         return false
-      }
-
-      // Date range filter
-      if (filters.dateRange !== 'all') {
-        if (!event.date) return false
-        const eventDate = new Date(event.date + 'T00:00:00Z').getTime()
-        if (Number.isNaN(eventDate)) return false
-        let cutoff
-        switch (filters.dateRange) {
-          case '24h':
-            cutoff = now - 86400000
-            break
-          case '48h':
-            cutoff = now - 172800000
-            break
-          case '7d':
-            cutoff = now - 604800000
-            break
-          default:
-            cutoff = 0
-        }
-        if (eventDate < cutoff) {
-          return false
-        }
       }
 
       return true
@@ -132,5 +109,5 @@ export function useEvents() {
     fetchEvents()
   }, [fetchEvents])
 
-  return { events, filteredEvents, loading, error, filters, updateFilter, fetchEvents, addEvent, addEvents }
+  return { events, filteredEvents, loading, error, filters, updateFilter, fetchEvents, addEvent, addEvents, lastUpdated }
 }

@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import websocket
 from app.api.routes import conflicts, events, metadata, planes, ships
+from app.api.stale_thresholds import router as stale_thresholds_router
 from app.core.database import close_db, init_db
 from app.tasks.schedulers import start_schedulers, stop_schedulers
 
@@ -62,6 +63,7 @@ app.include_router(ships.router)
 app.include_router(events.router)
 app.include_router(conflicts.router)
 app.include_router(websocket.router)
+app.include_router(stale_thresholds_router)
 
 
 @app.get("/")

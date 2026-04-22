@@ -4,8 +4,109 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: #0a0a0f;
+  /* Starfield sits directly on the container's background layer. The
+     image URL is injected inline from Globe.jsx; the color fallback
+     keeps the viewport dark if the SVG is still being parsed. DeckGL's
+     canvas renders as a child and naturally paints on top, so the stars
+     never occlude the globe. */
+  background-color: #05060a;
+  background-image: var(--starfield-bg, none);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  overflow: hidden;
 }
+
+/* ============================================================
+   Atmosphere — viewport-tracked SVG rim + haze overlay. Positions
+   and radii come from Globe.jsx's `atmosphere` state (computed
+   from the live deck.gl viewport). `screen` blending lets the
+   glow add light onto the basemap without obscuring it.
+   ============================================================ */
+.atmosphere-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  z-index: 5;
+}
+
+.plane-trail-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 0 4px rgba(232, 184, 74, 0.4));
+  z-index: 6;
+}
+
+.plane-trail-path {
+  fill: none;
+  stroke: rgba(232, 184, 74, 0.92);
+  stroke-width: 2.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 2 8;
+}
+
+
+.ship-trail-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 0 4px rgba(88, 196, 220, 0.4));
+  z-index: 7;
+}
+
+.ship-trail-path {
+  fill: none;
+  stroke: rgba(88, 196, 220, 0.92);
+  stroke-width: 2.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 2 8;
+}
+
+.plane-route-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 0 4px rgba(232, 184, 74, 0.32));
+  z-index: 6;
+}
+
+.plane-route-path {
+  fill: none;
+  stroke: var(--accent-air);
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.plane-route-path--origin {
+  opacity: 0.48;
+  stroke-dasharray: 2 9;
+}
+
+.plane-route-path--destination {
+  opacity: 0.84;
+  stroke-dasharray: 4 7;
+}
+
+/* ============================================================
+   Globe-info stat strip — bottom center HUD
+   ============================================================ */
 
 .globe-info {
   position: absolute;
@@ -13,94 +114,571 @@
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 24px;
-  padding: 10px 20px;
-  background: rgba(10, 10, 15, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 24px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(8px);
+  align-items: stretch;
+  padding: 0;
+  background: rgba(11, 14, 20, 0.92);
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  font-family: var(--sans);
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   z-index: 10;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 8px 32px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
 }
 
-.globe-info span {
-  display: flex;
+/* Corner bracket accents */
+.globe-info::before,
+.globe-info::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+}
+
+.globe-info::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1px solid var(--accent-air);
+  border-left: 1px solid var(--accent-air);
+}
+
+.globe-info::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 1px solid var(--accent-ok);
+  border-right: 1px solid var(--accent-ok);
+}
+
+.globe-info > span {
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
+  padding: 9px 14px;
+  border-right: 1px solid var(--line);
+  font-weight: 500;
+  color: var(--text-1);
+  white-space: nowrap;
 }
 
-.ws-status.connected {
-  color: #22c55e;
+.globe-info .stat-label {
+  font-family: var(--sans);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-2);
 }
 
-.ws-status.disconnected {
-  color: #eab308;
+.globe-info .stat-value {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'zero' 1;
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  color: var(--text-0);
+  text-transform: none;
 }
 
-.globe-info span::before {
+.globe-info > span:last-child {
+  border-right: none;
+}
+
+/* Replace the old generic currentColor dot with per-stat accent squares */
+.globe-info > span::before {
   content: '';
   display: inline-block;
   width: 6px;
   height: 6px;
-  border-radius: 50%;
-  background: currentColor;
+  border-radius: 0;
+  background: var(--text-3);
+  flex-shrink: 0;
+  box-shadow: none;
 }
+
+/* Numbers — mono, tabular, accent on the value via ::after is impossible from text node,
+   so we color the whole span via parent rule and rely on CSS to separate label vs number */
+.globe-info > span:nth-child(1) { color: var(--text-1); }
+.globe-info > span:nth-child(1)::before {
+  background: var(--accent-air);
+  box-shadow: 0 0 5px rgba(232, 184, 74, 0.5);
+}
+
+.globe-info > span:nth-child(2) { color: var(--text-1); }
+.globe-info > span:nth-child(2)::before {
+  background: var(--accent-sea);
+  box-shadow: 0 0 5px rgba(88, 196, 220, 0.5);
+}
+
+.globe-info > span:nth-child(3) { color: var(--text-1); }
+.globe-info > span:nth-child(3)::before {
+  background: var(--accent-evt);
+  box-shadow: 0 0 5px rgba(217, 161, 91, 0.5);
+}
+
+.globe-info > span:nth-child(4) { color: var(--text-1); }
+.globe-info > span:nth-child(4)::before {
+  background: var(--accent-cnf);
+  box-shadow: 0 0 5px rgba(224, 60, 60, 0.5);
+}
+
+/* WS status span is the last child */
+.globe-info .ws-status {
+  font-family: var(--mono);
+  letter-spacing: 1.2px;
+  padding-left: 14px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.globe-info .ws-status::before {
+  background: var(--text-3);
+  border-radius: 50%;
+  animation: none;
+}
+
+.ws-status.connected {
+  color: var(--accent-ok) !important;
+}
+
+.ws-status.connected::before {
+  background: var(--accent-ok) !important;
+  border-radius: 50% !important;
+  box-shadow: 0 0 6px rgba(95, 207, 138, 0.7) !important;
+  animation: wsPulse 1.6s ease-in-out infinite !important;
+}
+
+.ws-status.disconnected {
+  color: var(--accent-warn) !important;
+}
+
+.ws-status.disconnected::before {
+  background: var(--accent-warn) !important;
+  border-radius: 50% !important;
+  box-shadow: 0 0 6px rgba(232, 184, 74, 0.7) !important;
+}
+
+@keyframes wsPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.8); }
+}
+
+/* Hide the bullet/circle characters in the ws-status text node since we
+   already render a proper dot via ::before. Using a negative text-indent
+   on a pseudo would be hacky — instead, slightly tighten spacing. The
+   original text content (◉ Live / ○ Reconnecting) still reads naturally
+   in mono. */
+
+/* ============================================================
+   Globe legend — bottom-left reference card
+   ============================================================ */
 
 .globe-legend {
   position: absolute;
   bottom: 20px;
   left: 20px;
-  background: rgba(0, 0, 0, 0.7);
-  padding: 10px 15px;
-  border-radius: 6px;
-  font-size: 12px;
-  color: #fff;
+  background: rgba(11, 14, 20, 0.92);
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  padding: 12px 14px;
+  font-family: var(--sans);
+  font-size: 10px;
+  color: var(--text-1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   z-index: 100;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 8px 32px rgba(0, 0, 0, 0.5);
+  min-width: 160px;
+}
+
+.globe-legend::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 8px;
+  height: 8px;
+  border-top: 1px solid var(--accent-air);
+  border-left: 1px solid var(--accent-air);
+  pointer-events: none;
+}
+
+.globe-legend::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 8px;
+  height: 8px;
+  border-bottom: 1px solid var(--accent-sea);
+  border-right: 1px solid var(--accent-sea);
+  pointer-events: none;
 }
 
 .legend-section {
-  margin: 2px 0;
+  margin: 0;
 }
 
 .legend-title {
+  font-family: var(--sans);
   font-weight: 600;
-  font-size: 11px;
+  font-size: 9px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: rgba(255, 255, 255, 0.6);
-  margin-bottom: 4px;
-  margin-top: 4px;
+  letter-spacing: 1.5px;
+  color: var(--text-2);
+  margin-bottom: 6px;
+  margin-top: 0;
 }
 
 .legend-divider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.15);
-  margin: 8px 0;
+  background: var(--line);
+  margin: 10px 0;
 }
 
 .legend-item {
   display: flex;
   align-items: center;
-  margin: 4px 0;
+  margin: 3px 0;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.3px;
+  color: var(--text-1);
+  text-transform: uppercase;
 }
 
 .legend-dot {
-  width: 12px;
-  height: 12px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   margin-right: 8px;
+  flex-shrink: 0;
 }
 
-.legend-dot.low { background: rgb(0, 255, 100); }
-.legend-dot.medium { background: rgb(255, 255, 0); }
-.legend-dot.high { background: rgb(255, 100, 100); }
+.legend-dot.low { background: rgb(0, 255, 100); box-shadow: 0 0 4px rgba(0, 255, 100, 0.4); }
+.legend-dot.medium { background: rgb(255, 255, 0); box-shadow: 0 0 4px rgba(255, 255, 0, 0.4); }
+.legend-dot.high { background: rgb(255, 100, 100); box-shadow: 0 0 4px rgba(255, 100, 100, 0.4); }
 
 /* Ship type legend icons */
 .ship-icon {
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 1px;
   margin-right: 8px;
   display: inline-block;
+  flex-shrink: 0;
+  box-shadow: 0 0 4px currentColor;
+}
+
+/* ============================================================
+   Map style switcher — top-right basemap HUD (Phase 5 Task 2)
+   Visually mirrors `.globe-info` (panel chrome + bracket corners)
+   and `.layer-toggle` / `.toggle-on` from Sidebar.css (segmented
+   cells + accent fill on active) so the control slots into the
+   existing Gotham grammar without introducing new vocabulary.
+   ============================================================ */
+
+.map-style-switcher {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px 9px;
+  background: rgba(11, 14, 20, 0.92);
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* Bracket accents — same geometry as .globe-info / .globe-legend.
+   Top-left uses accent-air (amber) and bottom-right uses accent-sea
+   (cyan) so the two corners harmonize with the rest of the HUD. */
+.map-style-switcher::before,
+.map-style-switcher::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+}
+
+.map-style-switcher::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1px solid var(--accent-air);
+  border-left: 1px solid var(--accent-air);
+}
+
+.map-style-switcher::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 1px solid var(--accent-sea);
+  border-right: 1px solid var(--accent-sea);
+}
+
+.map-style-switcher-label {
+  font-family: var(--sans);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.map-style-switcher-cells {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--bg-1);
+}
+
+.mss-cell {
+  padding: 6px 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-2);
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--line);
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.mss-cell:last-child {
+  border-right: none;
+}
+
+.mss-cell:hover {
+  background: var(--bg-2);
+  color: var(--text-0);
+}
+
+.mss-cell.active {
+  background: var(--accent-air);
+  color: var(--bg-0);
+  box-shadow: 0 0 8px rgba(232, 184, 74, 0.45);
+}
+
+.mss-cell.active:hover {
+  background: var(--accent-air);
+  color: var(--bg-0);
+}
+
+/* ============================================================
+   Minimap — bottom-right navigator inset (Phase 5 Task 3)
+   Visually consistent with .globe-info, .globe-legend, and
+   .map-style-switcher panel chrome (bracket accents, blur, shadow).
+   pointer-events: none ensures the inset never steals pan/zoom
+   from the primary DeckGL canvas underneath it.
+   ============================================================ */
+
+.minimap-container {
+  position: absolute;
+  bottom: 72px;
+  right: 16px;
+  width: 148px;
+  height: 148px;
+  border-radius: 2px;
+  border: 1px solid var(--line-strong);
+  background: rgba(11, 14, 20, 0.92);
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 8px 32px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  pointer-events: none;
+  z-index: 90;
+}
+
+/* Corner bracket accents — top-left with accent-air, bottom-right with accent-sea,
+   matching the pattern established by .globe-info and .map-style-switcher. */
+.minimap-container::before,
+.minimap-container::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+}
+
+.minimap-container::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1px solid var(--accent-air);
+  border-left: 1px solid var(--accent-air);
+}
+
+.minimap-container::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 1px solid var(--accent-sea);
+  border-right: 1px solid var(--accent-sea);
+}
+
+/* ============================================================
+   Minimap toggle — matches .map-style-switcher / .mss-cell
+   Gotham grammar. Sits in the top-right HUD area.
+   ============================================================ */
+
+.minimap-toggle {
+  position: absolute;
+  top: 110px;
+  right: 16px;
+  z-index: 10;
+  padding: 6px 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-2);
+  background: rgba(11, 14, 20, 0.92);
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 8px 32px rgba(0, 0, 0, 0.5);
+  transition: background 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.minimap-toggle:hover {
+  background: rgba(11, 14, 20, 0.96);
+  color: var(--text-0);
+}
+
+.minimap-toggle.minimap-toggle--active {
+  background: var(--accent-air);
+  color: var(--bg-0);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 0 8px rgba(232, 184, 74, 0.45);
+}
+
+.minimap-toggle.minimap-toggle--active:hover {
+  background: var(--accent-air);
+  color: var(--bg-0);
+}
+
+/* Corner bracket accents matching .map-style-switcher */
+.minimap-toggle::before,
+.minimap-toggle::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+}
+
+.minimap-toggle::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1px solid var(--accent-air);
+  border-left: 1px solid var(--accent-air);
+}
+
+.minimap-toggle::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 1px solid var(--accent-sea);
+  border-right: 1px solid var(--accent-sea);
+}
+
+/* When active, shift bracket accent colors to indicate "on" state */
+.minimap-toggle.minimap-toggle--active::before {
+  border-top: 1px solid var(--accent-ok);
+  border-left: 1px solid var(--accent-ok);
+}
+
+.minimap-toggle.minimap-toggle--active::after {
+  border-bottom: 1px solid var(--accent-ok);
+  border-right: 1px solid var(--accent-ok);
+}
+
+/* ============================================================
+   Reset view button — top-left HUD control
+   Visually mirrors .minimap-toggle / .map-style-switcher
+   Gotham grammar (bracket accents, blur, shadow).
+   ============================================================ */
+
+.reset-view-btn {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 10;
+  padding: 6px 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-2);
+  background: rgba(11, 14, 20, 0.92);
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 8px 32px rgba(0, 0, 0, 0.5);
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+
+.reset-view-btn:hover {
+  border-color: var(--accent-air);
+  color: var(--text-0);
+  background: var(--bg-2);
+}
+
+.reset-view-btn:focus-visible {
+  outline: 2px solid var(--accent-air);
+  outline-offset: 2px;
+}
+
+/* Corner bracket accents — matching .map-style-switcher / .minimap-toggle pattern */
+.reset-view-btn::before,
+.reset-view-btn::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+}
+
+.reset-view-btn::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1px solid var(--accent-air);
+  border-left: 1px solid var(--accent-air);
+}
+
+.reset-view-btn::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 1px solid var(--accent-sea);
+  border-right: 1px solid var(--accent-sea);
 }

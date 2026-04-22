@@ -1,10 +1,17 @@
 import asyncio
+import os
+from math import ceil
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import aiosqlite
 
-DATABASE_PATH = "./terrawatch.db"
+from app.config import settings
+
+_backend_root = Path(__file__).resolve().parents[2]
+_project_root = _backend_root.parent if _backend_root.name == "backend" else _backend_root
+DATABASE_PATH = os.getenv("TERRAWATCH_DB_PATH", str(_project_root / "terrawatch.db"))
 
 _db_instance: aiosqlite.Connection | None = None
 _db_write_lock: asyncio.Lock | None = None
@@ -85,6 +92,14 @@ _EVENT_UPSERT_SQL = """
         category = excluded.category,
         source_url = excluded.source_url
 """
+
+
+def _minutes_from_seconds(seconds: int) -> int:
+    return max(1, ceil(seconds / 60))
+
+
+def _days_from_seconds(seconds: int) -> int:
+    return max(1, ceil(seconds / 86400))
 
 
 
@@ -323,11 +338,13 @@ async def upsert_planes(
 
 async def delete_old_planes(
     db: aiosqlite.Connection,
-    max_age_minutes: int = 5,
+    max_age_minutes: int | None = None,
     *,
     commit: bool = True,
 ) -> list[str]:
     """Delete stale planes and return the deleted plane ids."""
+    if max_age_minutes is None:
+        max_age_minutes = _minutes_from_seconds(settings.STALE_PLANE_SECONDS)
     if commit:
         async with db_write_guard():
             deleted_ids = await delete_old_planes(db, max_age_minutes=max_age_minutes, commit=False)
@@ -401,11 +418,13 @@ async def upsert_ships(
 
 async def delete_old_ships(
     db: aiosqlite.Connection,
-    max_age_minutes: int = 10,
+    max_age_minutes: int | None = None,
     *,
     commit: bool = True,
 ) -> list[str]:
     """Delete stale ships and return the deleted ship ids."""
+    if max_age_minutes is None:
+        max_age_minutes = _minutes_from_seconds(settings.STALE_SHIP_SECONDS)
     if commit:
         async with db_write_guard():
             deleted_ids = await delete_old_ships(db, max_age_minutes=max_age_minutes, commit=False)
@@ -486,11 +505,13 @@ async def upsert_events(
 
 async def delete_old_events(
     db: aiosqlite.Connection,
-    max_age_days: int = 30,
+    max_age_days: int | None = None,
     *,
     commit: bool = True,
 ) -> list[str]:
     """Delete stale events older than max_age_days and return the deleted event ids."""
+    if max_age_days is None:
+        max_age_days = _days_from_seconds(settings.STALE_EVENT_SECONDS)
     if commit:
         async with db_write_guard():
             deleted_ids = await delete_old_events(db, max_age_days=max_age_days, commit=False)

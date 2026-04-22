@@ -1,51 +1,53 @@
-.event-text {
-  font-size: 14px;
-  line-height: 1.5;
-  color: #e5e7eb;
-  word-break: break-word;
+/* Event accent glyph */
+.plane-info-panel[data-type='event'] .type-glyph {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: var(--accent-evt);
+  box-shadow: 0 0 6px rgba(217, 161, 91, 0.6);
+  flex-shrink: 0;
 }
+
+/* Event body text */
+.event-text {
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-0);
+  word-break: break-word;
+  text-align: left !important;
+}
+
+/* ---------- Tone badges ---------- */
 
 .tone-badge {
   display: inline-block;
-  padding: 2px 10px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  font-family: 'Courier New', monospace;
+  padding: 3px 10px;
+  border-radius: 2px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  border: 1px solid;
 }
 
 .tone-badge.tone-negative {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(224, 60, 60, 0.12);
+  color: #F27373;
+  border-color: rgba(224, 60, 60, 0.35);
 }
 
 .tone-badge.tone-positive {
-  background: rgba(34, 197, 94, 0.2);
-  color: #4ade80;
-  border: 1px solid rgba(34, 197, 94, 0.3);
+  background: rgba(95, 207, 138, 0.12);
+  color: var(--accent-ok);
+  border-color: rgba(95, 207, 138, 0.35);
 }
 
 .tone-badge.tone-neutral {
-  background: rgba(234, 179, 8, 0.2);
-  color: #facc15;
-  border: 1px solid rgba(234, 179, 8, 0.3);
+  background: rgba(232, 184, 74, 0.12);
+  color: var(--accent-air);
+  border-color: rgba(232, 184, 74, 0.35);
 }
 
-.info-row.full-width {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-}
 
-.source-link {
-  color: #60a5fa;
-  font-size: 13px;
-  text-decoration: none;
-  transition: color 0.15s;
-}
-
-.source-link:hover {
-  color: #93c5fd;
-  text-decoration: underline;
-}

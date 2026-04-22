@@ -1,87 +1,9 @@
-.plane-info-panel {
-  position: absolute;
-  top: 80px;
-  right: 20px;
-  width: 280px;
-  background: rgba(10, 15, 25, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 8px;
-  z-index: 1000;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  animation: slideIn 0.2s ease-out;
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.plane-info-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.plane-info-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #fff;
-  font-family: monospace;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  color: #888;
-  font-size: 20px;
-  cursor: pointer;
-  padding: 0;
-  line-height: 1;
-}
-
-.close-btn:hover {
-  color: #fff;
-}
-
-.plane-info-grid {
-  padding: 12px 16px;
-}
-
-.info-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.info-row:last-child {
-  border-bottom: none;
-}
-
-.info-label {
-  color: #6b7280;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.info-value {
-  color: #e5e7eb;
-  font-size: 14px;
-}
-
-.info-value.mono {
-  font-family: 'Courier New', monospace;
-  color: #10b981;
+/* Plane-specific glyph for the header (square accent) */
+.plane-info-panel[data-type='plane'] .type-glyph {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: var(--accent-air);
+  box-shadow: 0 0 6px rgba(232, 184, 74, 0.6);
+  flex-shrink: 0;
 }

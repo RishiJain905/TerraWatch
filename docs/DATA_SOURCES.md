@@ -1,6 +1,6 @@
 # TerraWatch — Data Sources
 
-All data sources are **free** and require **no paid API keys**.
+Most data sources are **free**. Aviationstack route enrichment requires an API key.
 
 ---
 
@@ -71,6 +71,26 @@ Sample API response:
 **Verified:** Tested 2026-04-10, returns ~12000 aircraft globally.
 
 **License:** Free for non-commercial use. Citation: Schäfer et al., IPSN 2014.
+
+---
+
+### Aviationstack - Flight Route Enrichment
+
+**What it is:** Aviation data API used by TerraWatch only for selection-time route enrichment on a selected plane.
+
+**Website:** https://aviationstack.com/
+
+**Endpoints:**
+```
+https://api.aviationstack.com/v1/flights
+https://api.aviationstack.com/v1/airports
+```
+
+**Auth:** Requires `access_key`.
+
+**Implementation note:** TerraWatch does not poll Aviationstack for the full fleet. Route lookups happen only when a user selects a plane, and backend in-memory TTL caches reduce repeated calls.
+
+**Route behavior:** Best effort. Backend maps provider failures to stable statuses: `ok`, `not_found`, `rate_limited`, `error`.
 
 ---
 
