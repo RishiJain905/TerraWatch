@@ -21,6 +21,10 @@ class ConfigDefaultsTests(unittest.TestCase):
             "ADSBLOL_RADIUS_NM",
             "ADSBLOL_REFRESH_SECONDS",
             "ADSB_REFRESH_SECONDS",
+            "AVIATIONSTACK_ACCESS_KEY",
+            "AVIATIONSTACK_BASE_URL",
+            "AVIATIONSTACK_ROUTE_CACHE_TTL_SECONDS",
+            "AVIATIONSTACK_AIRPORT_CACHE_TTL_SECONDS",
         ]
         original = {key: os.environ.get(key) for key in keys}
 
@@ -37,6 +41,10 @@ class ConfigDefaultsTests(unittest.TestCase):
             self.assertEqual(reloaded.settings.ADSBLOL_RADIUS_NM, 250)
             self.assertEqual(reloaded.settings.ADSBLOL_REFRESH_SECONDS, 120)
             self.assertEqual(reloaded.settings.ADSB_REFRESH_SECONDS, 120)
+            self.assertEqual(reloaded.settings.AVIATIONSTACK_ACCESS_KEY, "")
+            self.assertEqual(reloaded.settings.AVIATIONSTACK_BASE_URL, "https://api.aviationstack.com/v1")
+            self.assertEqual(reloaded.settings.AVIATIONSTACK_ROUTE_CACHE_TTL_SECONDS, 600)
+            self.assertEqual(reloaded.settings.AVIATIONSTACK_AIRPORT_CACHE_TTL_SECONDS, 86400)
         finally:
             for key, value in original.items():
                 if value is None:

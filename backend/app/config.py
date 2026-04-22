@@ -46,6 +46,14 @@ class Settings:
     # Client credentials from: https://opensky-network.org/my-opensky/account
     OPENSKY_CLIENT_ID: str = os.getenv("OPENSKY_CLIENT_ID", "")
     OPENSKY_CLIENT_SECRET: str = os.getenv("OPENSKY_CLIENT_SECRET", "")
+    AVIATIONSTACK_ACCESS_KEY: str = os.getenv("AVIATIONSTACK_ACCESS_KEY", "")
+    AVIATIONSTACK_BASE_URL: str = os.getenv("AVIATIONSTACK_BASE_URL", "https://api.aviationstack.com/v1")
+    AVIATIONSTACK_ROUTE_CACHE_TTL_SECONDS: int = int(
+        os.getenv("AVIATIONSTACK_ROUTE_CACHE_TTL_SECONDS", "600")
+    )
+    AVIATIONSTACK_AIRPORT_CACHE_TTL_SECONDS: int = int(
+        os.getenv("AVIATIONSTACK_AIRPORT_CACHE_TTL_SECONDS", "86400")
+    )
 
     # Data refresh intervals (seconds)
     ADSB_REFRESH_SECONDS: int = int(os.getenv("ADSB_REFRESH_SECONDS", "120"))

@@ -27,9 +27,12 @@ function App() {
   }, [])
 
   const [selectedPlane, setSelectedPlane] = useState(null)
+  const [selectedPlaneRoute, setSelectedPlaneRoute] = useState(null)
+  const [selectedPlaneRouteStatus, setSelectedPlaneRouteStatus] = useState('idle')
   const [selectedShip, setSelectedShip] = useState(null)
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [selectedConflict, setSelectedConflict] = useState(null)
+  const selectedPlaneRouteRequestSeq = useRef(0)
 
   const globeRef = useRef(null)
 
@@ -105,6 +108,64 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
+  useEffect(() => {
+    if (!selectedPlane?.id) {
+      selectedPlaneRouteRequestSeq.current += 1
+      setSelectedPlaneRoute(null)
+      setSelectedPlaneRouteStatus('idle')
+      return undefined
+    }
+
+    const controller = new AbortController()
+    const requestSeq = ++selectedPlaneRouteRequestSeq.current
+
+    setSelectedPlaneRoute(null)
+    setSelectedPlaneRouteStatus('loading')
+
+    const loadPlaneRoute = async () => {
+      try {
+        const response = await fetch(`/api/planes/${encodeURIComponent(selectedPlane.id)}/route`, {
+          signal: controller.signal,
+        })
+
+        const routeData = await response.json().catch(() => null)
+        if (controller.signal.aborted || requestSeq !== selectedPlaneRouteRequestSeq.current) {
+          return
+        }
+
+        if (response.ok) {
+          setSelectedPlaneRoute(routeData)
+          setSelectedPlaneRouteStatus(routeData?.status ?? 'ok')
+          return
+        }
+
+        setSelectedPlaneRoute(routeData && typeof routeData === 'object' ? routeData : null)
+        setSelectedPlaneRouteStatus(
+          routeData?.status && routeData.status !== 'ok'
+            ? routeData.status
+            : response.status === 404
+              ? 'not_found'
+              : response.status === 429
+                ? 'rate_limited'
+                : 'error'
+        )
+      } catch {
+        if (controller.signal.aborted || requestSeq !== selectedPlaneRouteRequestSeq.current) {
+          return
+        }
+
+        setSelectedPlaneRoute(null)
+        setSelectedPlaneRouteStatus('error')
+      }
+    }
+
+    loadPlaneRoute()
+
+    return () => {
+      controller.abort()
+    }
+  }, [selectedPlane?.id])
+
   const toggleLayer = useCallback((layer) => {
     setLayers(prev => ({ ...prev, [layer]: !prev[layer] }))
   }, [])
@@ -149,11 +210,15 @@ function App() {
             onFilterHooksReady={handleFilterHooksReady}
             onFiltersChange={bumpSidebarForFilters}
             selectedPlane={selectedPlane}
+            selectedPlaneRoute={selectedPlaneRoute}
+            selectedPlaneRouteStatus={selectedPlaneRouteStatus}
             selectedShip={selectedShip}
           />
           {selectedPlane && (
             <PlaneInfoPanel
               plane={selectedPlane}
+              route={selectedPlaneRoute}
+              routeStatus={selectedPlaneRouteStatus}
               onClose={() => setSelectedPlane(null)}
             />
           )}

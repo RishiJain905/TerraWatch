@@ -32,6 +32,29 @@ class Ship(BaseModel):
     timestamp: Optional[str] = None
 
 
+class PlaneRouteAirport(BaseModel):
+    name: str = ""
+    iata: str = ""
+    icao: str = ""
+    lat: float | None = None
+    lon: float | None = None
+
+
+class PlaneRoute(BaseModel):
+    plane_id: str
+    resolved_by: Literal["icao24", "callsign", "none"] = "none"
+    status: Literal["ok", "not_found", "rate_limited", "error"] = "not_found"
+    provider: str = "aviationstack"
+    flight_iata: str = ""
+    flight_icao: str = ""
+    airline_name: str = ""
+    airline_iata: str = ""
+    airline_icao: str = ""
+    departure: PlaneRouteAirport = Field(default_factory=PlaneRouteAirport)
+    arrival: PlaneRouteAirport = Field(default_factory=PlaneRouteAirport)
+    last_updated: Optional[str] = None
+
+
 class WorldEvent(BaseModel):
     id: str
     date: str

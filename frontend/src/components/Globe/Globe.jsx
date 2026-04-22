@@ -9,6 +9,7 @@ import { buildTerminatorImage } from '../../utils/terminator'
 import { buildPolarCapData } from '../../utils/polarCaps'
 import { getStarfieldDataUrl } from '../../utils/starfield'
 import { buildPlaneTrailPath } from './planeTrail'
+import { buildSelectedPlaneRouteLegs } from './routeOverlay'
 import { buildShipTrailPath } from './shipTrail'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import { usePlanes } from '../../hooks/usePlanes'
@@ -51,7 +52,41 @@ function rowFromPick(info, dataArray) {
   return info.object ?? (info.index >= 0 ? dataArray[info.index] : null)
 }
 
-const Globe = forwardRef(function Globe({ layers, onEntityClick, onFilterHooksReady, onFiltersChange, selectedPlane, selectedShip }, ref) {
+function projectVisiblePolyline(viewport, atmosphere, positions) {
+  if (!viewport || !atmosphere.ready || !Array.isArray(positions) || positions.length < 2) {
+    return []
+  }
+
+  const projectedPoints = []
+  const maxVisibleRadius = atmosphere.r * 1.02
+
+  for (const position of positions) {
+    const projected = viewport.project(position)
+    if (!Number.isFinite(projected?.[0]) || !Number.isFinite(projected?.[1])) {
+      continue
+    }
+
+    const visible = Math.hypot(projected[0] - atmosphere.cx, projected[1] - atmosphere.cy) <= maxVisibleRadius
+    if (!visible) {
+      continue
+    }
+
+    projectedPoints.push(`${projected[0]},${projected[1]}`)
+  }
+
+  return projectedPoints
+}
+
+const Globe = forwardRef(function Globe({
+  layers,
+  onEntityClick,
+  onFilterHooksReady,
+  onFiltersChange,
+  selectedPlane,
+  selectedPlaneRoute,
+  selectedPlaneRouteStatus,
+  selectedShip,
+}, ref) {
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE)
 
   const flyTo = useCallback(({ lon, lat }) => {
@@ -498,6 +533,30 @@ const Globe = forwardRef(function Globe({ layers, onEntityClick, onFilterHooksRe
     }
   }
 
+  const selectedPlaneRouteLegs = buildSelectedPlaneRouteLegs(
+    liveSelectedPlane,
+    selectedPlaneRoute,
+    selectedPlaneRouteStatus
+  )
+  const projectedPlaneRoutePaths = []
+  if (selectedPlaneRouteLegs.length > 0) {
+    try {
+      const viewport = deckRef.current?.deck?.getViewports?.()[0]
+      if (viewport) {
+        for (const leg of selectedPlaneRouteLegs) {
+          const points = projectVisiblePolyline(viewport, atmosphere, [
+            leg.sourcePosition,
+            leg.targetPosition,
+          ])
+          if (points.length > 1) {
+            projectedPlaneRoutePaths.push({ kind: leg.kind, points })
+          }
+        }
+      }
+    } catch (_) {
+      // Viewport projection can throw during init or rapid camera changes.
+    }
+  }
   // GDELT Events — under vessels for picking priority
   if (layers && layers.events) {
     deckLayers.push(
@@ -698,6 +757,21 @@ const Globe = forwardRef(function Globe({ layers, onEntityClick, onFilterHooksRe
             points={projectedShipTrailPath.join(' ')}
             className="ship-trail-path"
           />
+        </svg>
+      )}
+      {projectedPlaneRoutePaths.length > 0 && (
+        <svg
+          className="plane-route-overlay"
+          aria-hidden="true"
+          preserveAspectRatio="none"
+        >
+          {projectedPlaneRoutePaths.map((leg) => (
+            <polyline
+              key={leg.kind}
+              points={leg.points.join(' ')}
+              className={`plane-route-path plane-route-path--${leg.kind}`}
+            />
+          ))}
         </svg>
       )}
       {atmosphere.ready && (

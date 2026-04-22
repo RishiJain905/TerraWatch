@@ -3,7 +3,65 @@ import { formatOptional, formatAltitude, formatSpeed, formatHeading, formatCoord
 import '../InfoPanel/infoPanel.css'
 import './PlaneInfoPanel.css'
 
-export default function PlaneInfoPanel({ plane, onClose }) {
+function formatAirport(routeAirport) {
+  if (!routeAirport) return '—'
+
+  const iata = routeAirport.iata?.trim()
+  const icao = routeAirport.icao?.trim()
+  const parts = []
+
+  if (iata) parts.push(iata)
+  if (icao) parts.push(icao)
+
+  if (!parts.length) {
+    return routeAirport.name?.trim() || '—'
+  }
+
+  return parts.join(' / ')
+}
+
+function formatFlightCode(route, key) {
+  const iata = route?.[`${key}_iata`]?.trim()
+  const icao = route?.[`${key}_icao`]?.trim()
+
+  if (iata && icao) return `${iata} / ${icao}`
+  if (iata || icao) return iata || icao
+  return '—'
+}
+
+function formatAirline(route) {
+  const name = route?.airline_name?.trim()
+  const iata = route?.airline_iata?.trim()
+  const icao = route?.airline_icao?.trim()
+  const codeParts = [iata, icao].filter(Boolean)
+
+  if (name && codeParts.length) {
+    return `${name} (${codeParts.join(' / ')})`
+  }
+
+  if (name) return name
+  if (codeParts.length) return codeParts.join(' / ')
+  return '—'
+}
+
+function formatRouteStatus(routeStatus) {
+  switch (routeStatus) {
+    case 'loading':
+      return 'Loading route...'
+    case 'ok':
+      return 'Resolved'
+    case 'not_found':
+      return 'Not available'
+    case 'rate_limited':
+      return 'Rate limited'
+    case 'error':
+      return 'Unavailable'
+    default:
+      return 'Not available'
+  }
+}
+
+export default function PlaneInfoPanel({ plane, route, routeStatus, onClose }) {
   if (!plane) return null
 
   const [copiedId, setCopiedId] = useState(null)
@@ -62,6 +120,26 @@ export default function PlaneInfoPanel({ plane, onClose }) {
         <div className="info-row">
           <span className="info-label">Last Contact</span>
           <span className="info-value">{formatRelativeTime(plane.timestamp)}</span>
+        </div>
+        <div className="info-row">
+          <span className="info-label">Airline</span>
+          <span className="info-value">{routeStatus === 'loading' ? 'Loading route...' : formatAirline(route)}</span>
+        </div>
+        <div className="info-row">
+          <span className="info-label">Flight IATA/ICAO</span>
+          <span className="info-value mono">{routeStatus === 'loading' ? 'Loading route...' : formatFlightCode(route, 'flight')}</span>
+        </div>
+        <div className="info-row">
+          <span className="info-label">Departure</span>
+          <span className="info-value mono">{routeStatus === 'loading' ? 'Loading route...' : formatAirport(route?.departure)}</span>
+        </div>
+        <div className="info-row">
+          <span className="info-label">Arrival</span>
+          <span className="info-value mono">{routeStatus === 'loading' ? 'Loading route...' : formatAirport(route?.arrival)}</span>
+        </div>
+        <div className="info-row">
+          <span className="info-label">Route status</span>
+          <span className="info-value">{formatRouteStatus(routeStatus)}</span>
         </div>
       </div>
     </div>
