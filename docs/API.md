@@ -1,133 +1,82 @@
-# TerraWatch — API Reference
+# TerraWatch API Reference
 
 Base URL: `http://localhost:8000`
 
 Interactive docs: `http://localhost:8000/docs`
 
----
-
 ## Endpoints
 
-### GET /
+### `GET /`
 Root endpoint.
 
-**Response:**
-```json
-{
-  "name": "TerraWatch API",
-  "version": "0.1.0",
-  "status": "running",
-  "docs": "/docs"
-}
-```
-
----
-
-### GET /health
+### `GET /health`
 Health check endpoint.
 
-**Response:**
-```json
-{
-  "status": "healthy"
-}
-```
+### `GET /api/metadata`
+Returns aggregate counts and last-update timestamps.
 
----
+### `GET /api/planes`
+Returns all active planes.
 
-### GET /api/metadata
-System metadata and counts.
+### `GET /api/planes/count`
+Returns `{ "count": number }` for active planes.
 
-**Response:**
-```json
-{
-  "status": "ok",
-  "phase": 1,
-  "planes_count": 0,
-  "ships_count": 0,
-  "events_count": 0,
-  "last_planes_update": null,
-  "last_ships_update": null,
-  "last_events_update": null
-}
-```
+### `GET /api/planes/{icao24}`
+Returns one plane or `null`.
 
----
+### `GET /api/planes/{icao24}/route`
+Returns Aviationstack route enrichment for a selected plane.
+The response is a `PlaneRoute` object with route metadata, nested departure/arrival airport objects, and a status field.
 
-### GET /api/planes
-Get all active planes.
+### `GET /api/ships`
+Returns all active ships.
 
-**Response:**
-```json
-[
-  {
-    "id": "abc123",
-    "lat": 51.5074,
-    "lon": -0.1278,
-    "alt": 35000,
-    "heading": 270.5,
-    "callsign": "BAW123",
-    "squawk": "7000",
-    "speed": 450.2,
-    "timestamp": "2026-04-10T12:00:00Z"
-  }
-]
-```
+### `GET /api/ships/count`
+Returns `{ "count": number }` for active ships.
 
----
+### `GET /api/ships/{mmsi}`
+Returns one ship or `null`.
 
-### GET /api/ships
-Get all active ships.
+### `GET /api/events`
+Returns all stored GDELT events.
 
-**Response:**
-```json
-[
-  {
-    "id": "123456789",
-    "lat": 1.3521,
-    "lon": 103.8198,
-    "heading": 180.0,
-    "speed": 12.5,
-    "name": "MV Example",
-    "destination": "Singapore",
-    "ship_type": "Cargo",
-    "timestamp": "2026-04-10T12:00:00Z"
-  }
-]
-```
+### `GET /api/events/count`
+Returns `{ "count": number }` for stored events.
 
----
+### `GET /api/events/{event_id}`
+Returns one event or `null`.
 
-### GET /api/events
-Get world events.
+### `GET /api/conflicts`
+Returns violent GDELT events used by the conflict heatmap.
 
-**Response:**
-```json
-[
-  {
-    "id": "gdelt123",
-    "date": "2026-04-10",
-    "lat": 48.8566,
-    "lon": 2.3522,
-    "event_text": "Protest in Paris",
-    "tone": -2.5,
-    "category": "Protest",
-    "source_url": "https://example.com"
-  }
-]
-```
+### `GET /api/conflicts/count`
+Returns `{ "count": number }` for violent events.
 
----
+### `GET /api/conflicts/{conflict_id}`
+Returns one violent event or `null`.
 
-### WebSocket /ws
+### `GET /api/stale-thresholds`
+Returns the configured cleanup thresholds in seconds.
 
-Real-time data stream. Connect via WebSocket protocol.
+## WebSocket
 
-**Connection URL:** `ws://localhost:8000/ws`
+### `WS /ws`
+Real-time data stream.
 
-**Incoming Messages:**
+Connection URL: `ws://localhost:8000/ws`
 
-Heartbeat:
+#### Incoming message types
+
+- `heartbeat`
+- `plane`
+- `plane_batch`
+- `ship`
+- `ship_batch`
+- `event_batch`
+- `conflict_batch`
+
+#### Example heartbeat
+
 ```json
 {
   "type": "heartbeat",
@@ -138,53 +87,73 @@ Heartbeat:
 }
 ```
 
-Plane update:
+#### Example plane batch
+
 ```json
 {
-  "type": "plane",
-  "data": {
-    "id": "abc123",
-    "lat": 51.5074,
-    "lon": -0.1278,
-    "alt": 35000,
-    "heading": 270.5,
-    "callsign": "BAW123",
-    "speed": 450.2,
-    "timestamp": "2026-04-10T12:00:00Z"
-  }
+  "type": "plane_batch",
+  "action": "upsert",
+  "data": [
+    {
+      "id": "abc123",
+      "lat": 51.5074,
+      "lon": -0.1278,
+      "alt": 35000,
+      "heading": 270.5,
+      "callsign": "BAW123",
+      "squawk": "7000",
+      "speed": 450.2,
+      "timestamp": "2026-04-10T12:00:00Z"
+    }
+  ],
+  "timestamp": "2026-04-10T12:00:00Z"
 }
 ```
 
-Ship update:
+#### Example route response
+
 ```json
 {
-  "type": "ship",
-  "data": {
-    "id": "123456789",
-    "lat": 1.3521,
-    "lon": 103.8198,
-    "heading": 180.0,
-    "speed": 12.5,
-    "name": "MV Example",
-    "timestamp": "2026-04-10T12:00:00Z"
-  }
+  "plane_id": "abc123",
+  "resolved_by": "icao24",
+  "status": "ok",
+  "provider": "aviationstack",
+  "flight_iata": "BA123",
+  "flight_icao": "BAW123",
+  "airline_name": "British Airways",
+  "airline_iata": "BA",
+  "airline_icao": "BAW",
+  "departure": {
+    "name": "Heathrow Airport",
+    "iata": "LHR",
+    "icao": "EGLL",
+    "lat": 51.4706,
+    "lon": -0.4619
+  },
+  "arrival": {
+    "name": "John F. Kennedy International Airport",
+    "iata": "JFK",
+    "icao": "KJFK",
+    "lat": 40.6413,
+    "lon": -73.7781
+  },
+  "last_updated": "2026-04-10T12:00:00Z"
 }
 ```
-
----
 
 ## Error Responses
 
-All endpoints return appropriate HTTP status codes:
+The API uses standard HTTP status codes:
 
 | Code | Meaning |
-|------|----------|
+|------|---------|
 | 200 | Success |
-| 400 | Bad Request |
-| 404 | Not Found |
-| 500 | Internal Server Error |
+| 400 | Bad request |
+| 404 | Not found |
+| 500 | Internal server error |
 
-Error response format:
+Error payloads follow the standard FastAPI format:
+
 ```json
 {
   "detail": "Error message here"
