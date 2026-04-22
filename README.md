@@ -24,6 +24,13 @@ Unlike expensive enterprise platforms, TerraWatch runs entirely in your browser 
 - Solar terminator line, starfield background, atmospheric rim glow — V3 (live)
 - Intelligence alerting — V4
 
+**Recent Additions:**
+- Plane route enrichment for selected aircraft via Aviationstack
+- Map style switching, minimap, keyboard shortcuts, and fly-to/reset controls
+- Plane and ship trail overlays, plus selected-plane route lines
+- Relative timestamps, clipboard copy buttons, and safer empty-state handling
+- Configurable stale-thresholds exposed through the backend API
+
 ---
 
 ## System Architecture
@@ -31,9 +38,9 @@ Unlike expensive enterprise platforms, TerraWatch runs entirely in your browser 
 ```mermaid
 graph TB
     subgraph Client["Browser (React + deck.gl)"]
-        Globe["3D Globe — Terminator + Starfield + Atmosphere"]
-        Hooks["useWebSocket<br/>usePlanes<br/>useShips<br/>useEvents<br/>useConflicts"]
-        Panels["PlaneInfoPanel<br/>ShipInfoPanel"]
+        Globe["3D Globe — Terminator + Starfield + Atmosphere<br/>Map style switcher + minimap + trails"]
+        Hooks["useWebSocket<br/>usePlanes<br/>useShips<br/>useEvents<br/>useConflicts<br/>useStaleThresholds"]
+        Panels["PlaneInfoPanel<br/>ShipInfoPanel<br/>EventInfoPanel<br/>ConflictInfoPanel"]
         Globe <--> Hooks
         Hooks <--> Panels
     end
@@ -41,19 +48,27 @@ graph TB
     subgraph Backend["FastAPI Backend :8000"]
         WS["WebSocket Server /ws"]
         REST["REST API /api/*"]
+        ROUTE["Plane route API /api/planes/{icao24}/route"]
+        THRESHOLDS["Stale thresholds API /api/stale-thresholds"]
+        Config["settings / env vars"]
         Schedulers["Background Schedulers"]
-        Services["adsb_service<br/>aisstream_service<br/>gdelt_service"]
+        Services["adsb_service<br/>adsblol_service<br/>aisstream_service<br/>gdelt_service<br/>aviationstack_service"]
         DB[(SQLite<br/>planes<br/>ships<br/>events<br/>conflicts)]
         Schedulers --> Services
         Services --> DB
         WS <--> Schedulers
         REST --> DB
+        ROUTE --> Services
+        THRESHOLDS --> Config
+        Schedulers --> Config
+        Services --> Config
     end
 
     Client -- "HTTP/REST + WebSocket" --> Backend
     Services -->|"OpenSky Network + adsb.lol"| ADSB["ADS-B APIs"]
     Services -->|"aisstream.io WebSocket"| AIS["AIS Stream"]
     Services -->|"GDELT Project"| GDELT["GDELT API"]
+    Services -->|"Aviationstack"| AV["Route enrichment"]
 ```
 
 ## Data Flow — Planes (ADS-B)
@@ -75,6 +90,9 @@ Directional plane icons
 Color-coded by altitude"]
     F --> G["PlaneInfoPanel
 Slide-in on click"]
+    G --> H["GET /api/planes/{icao24}/route
+Aviationstack route enrichment
+Selected-plane route overlay"]
 ```
 
 ## Data Flow — Ships (AIS)
@@ -109,7 +127,7 @@ Mutually exclusive w/ plane panel"]
 | 2 | Live Aircraft Tracking | Complete | OpenSky integration + optional ADSB.lol regional augmentation, 30s refresh, directional icons, PlaneInfoPanel |
 | 3 | Live Ship Tracking | Complete | aisstream.io WebSocket integration (global coverage), real-time streaming, type-colored icons, ShipInfoPanel |
 | 4 | Events & Conflicts | Complete | GDELT world events, conflict heatmap, event/conflict filtering, ACLED integration |
-| 5 | Visual Enhancements | Complete | Solar terminator line, starfield background, atmospheric rim glow |
+| 5 | Visual Enhancements | Complete | Solar terminator raster, starfield, atmosphere, map style switcher, minimap, trails, keyboard shortcuts, copy UX, route enrichment |
 | 6–7 | Alerting & Hardening | Planned | Zone alerting, production hardening |
 
 ### Phase 1 — Foundation Setup
@@ -138,6 +156,22 @@ Mutually exclusive w/ plane panel"]
 - Click-to-inspect ShipInfoPanel (name, MMSI, heading, speed, destination)
 - PlaneInfoPanel and ShipInfoPanel are mutually exclusive
 - Comprehensive backend test suite
+
+### Phase 4 — Events & Conflicts
+
+- GDELT world event ingestion and persistence
+- Conflict heatmap derived from violent event categories
+- Event and conflict filtering on the globe
+- Live WebSocket broadcast for event and conflict batches
+
+### Phase 5 — Visual Enhancements
+
+- Procedural solar terminator raster, starfield background, and polar caps
+- Atmospheric rim glow that tracks globe radius and viewport changes
+- Map style switcher, minimap, and globe navigation shortcuts
+- Plane and ship trails, plus selected-plane route lines
+- Relative timestamps, clipboard copy buttons, and null-safe panel fallbacks
+- Stale-threshold endpoint and route enrichment for selected planes
 
 ---
 
@@ -235,7 +269,7 @@ npm run dev
 
 Then open **http://localhost:5173** in your browser.
 
-> **Note:** The Vite dev server proxies `/api` → `http://localhost:8000` and `/ws` → `ws://localhost:8000` automatically. You do not need to configure anything manually.
+> **Note:** The frontend uses `VITE_API_URL` and `VITE_WS_URL` when set; the defaults point at `localhost:8000` for local development. The Vite proxy variables are only needed for Docker or custom host setups.
 
 ### Vite Proxy Configuration
 
@@ -245,7 +279,7 @@ The frontend's `vite.config.js` handles cross-origin in development:
 server: {
   proxy: {
     '/api': { target: 'http://localhost:8000', changeOrigin: true },
-    '/ws':  { target: 'ws://localhost:8000', ws: true },
+    '/ws':  { target: 'ws://localhost:8000', ws: true, changeOrigin: true },
   }
 }
 ```
@@ -274,19 +308,22 @@ python -m pytest tests/test_adsb_service.py -v
 TerraWatch/
 ├── backend/                     # FastAPI application
 │   ├── app/
-│   │   ├── main.py             # App entry, lifespan events, CORS
-│   │   ├── config.py           # Environment config (ADSB_REFRESH_SECONDS, AIS_REFRESH_SECONDS)
+│   │   ├── main.py             # App entry, lifespan events, CORS, routers
+│   │   ├── config.py           # Environment config (refresh + stale thresholds, route cache)
 │   │   ├── api/
 │   │   │   ├── routes/
 │   │   │   │   ├── planes.py   # GET /api/planes, /api/planes/count, /api/planes/{icao24}
 │   │   │   │   └── ships.py    # GET /api/ships, /api/ships/count, /api/ships/{mmsi}
+│   │   │   ├── stale_thresholds.py # GET /api/stale-thresholds
 │   │   │   └── websocket.py     # WebSocket /ws — broadcast_plane_batch/ship_batch
 │   │   ├── core/
 │   │   │   ├── database.py     # SQLite init, upsert/delete helpers, db_write_guard
-│   │   │   └── models.py       # Pydantic models: Plane, Ship, WSMessage
+│   │   │   └── models.py       # Pydantic models: Plane, Ship, Route, WSMessage
 │   │   ├── services/
-│   │   │   ├── adsb_service.py # OpenSky Network fetch + normalize
-│   │   │   └── ais_service.py  # Digitraffic AIS fetch + merge by MMSI
+│   │   │   ├── adsb_service.py # OpenSky fetch + normalize
+│   │   │   ├── adsblol_service.py # ADSB.lol v2 point fetch + normalize
+│   │   │   ├── ais_service.py  # Digitraffic AIS fetch + merge by MMSI
+│   │   │   └── aviationstack_service.py # Plane route enrichment + cache
 │   │   └── tasks/
 │   │       └── schedulers.py    # asyncio scheduler loops for planes + ships
 │   ├── requirements.txt
@@ -294,20 +331,33 @@ TerraWatch/
 │
 ├── frontend/                    # React 18 application
 │   ├── src/
-│   │   ├── App.jsx             # Root — selectedPlane/selectedShip state, mutual exclusion
+│   │   ├── App.jsx             # Root — selectedPlane/selectedShip state, route loading, mutual exclusion
 │   │   ├── components/
 │   │   │   ├── Globe/
-│   │   │   │   ├── Globe.jsx   # deck.gl GlobeView + IconLayer (planes + ships)
-│   │   │   │   └── Globe.css   # Legend, info bar
-│   │   │   ├── PlaneInfoPanel/ # Slide-in panel for plane details
-│   │   │   └── ShipInfoPanel/  # Slide-in panel for ship details
+│   │   │   │   ├── Globe.jsx   # deck.gl GlobeView + terminator + trails + minimap + style switcher
+│   │   │   │   ├── Globe.css   # Legend, info bar, atmosphere
+│   │   │   │   ├── MapStyleSwitcher.jsx # Basemap style selector
+│   │   │   │   ├── Minimap.jsx # Globe inset overview
+│   │   │   │   ├── planeTrail.js # Plane trail helpers
+│   │   │   │   ├── routeOverlay.js # Selected-plane route helpers
+│   │   │   │   ├── shipTrail.js # Ship trail helpers
+│   │   │   │   ├── planeTrail.test.js # Plane trail unit tests
+│   │   │   │   └── routeOverlay.test.js # Route overlay unit tests
+│   │   │   ├── PlaneInfoPanel/ # Slide-in panel for plane details + route actions
+│   │   │   └── ShipInfoPanel/  # Slide-in panel for ship details + copy UX
 │   │   ├── hooks/
 │   │   │   ├── useWebSocket.js # WS connection, heartbeat, reconnect
 │   │   │   ├── usePlanes.js    # Plane state + WS plane_batch handling
-│   │   │   └── useShips.js     # Ship state + WS ship_batch handling
+│   │   │   ├── useShips.js     # Ship state + WS ship_batch handling
+│   │   │   └── useStaleThresholds.js # Backend-driven cleanup thresholds
 │   │   └── utils/
+│   │       ├── constants.js    # Shared numeric limits
+│   │       ├── formatters.js   # Display helpers, clipboard fallback, relative time
 │   │       ├── planeIcons.js   # Directional SVG plane icons (cached atlas)
-│   │       └── shipIcons.js    # Directional SVG ship icons (type-colored)
+│   │       ├── polarCaps.js    # Polar cap overlay data
+│   │       ├── shipIcons.js    # Directional SVG ship icons (type-colored)
+│   │       ├── starfield.js    # Seeded SVG starfield generator
+│   │       └── terminator.js   # Procedural night-side raster
 │   ├── package.json
 │   ├── vite.config.js          # Vite + React plugin + /api + /ws proxy
 │   └── Dockerfile
@@ -363,7 +413,7 @@ Execution uses **Droid Missions** for structured multi-agent orchestration, or t
 |---------|--------|---------|--------|
 | **V1** | 1–3 | Live planes + ships on globe | Complete |
 | **V2** | 4 | GDELT world events + conflict heatmap | Complete |
-| **V3** | 5 | Terminator line + starfield + atmosphere | Complete |
+| **V3** | 5 | Terminator raster + starfield + atmosphere + map controls + trails + route enrichment | Complete |
 | **V4** | 6–7 | Zone alerting + production hardening | Planned |
 
 ---
@@ -379,9 +429,11 @@ Execution uses **Droid Missions** for structured multi-agent orchestration, or t
 | `GET` | `/api/planes` | All active planes (stale removed) |
 | `GET` | `/api/planes/count` | Plane count → `{"count": N}` |
 | `GET` | `/api/planes/{icao24}` | Single plane or `null` |
+| `GET` | `/api/planes/{icao24}/route` | Enriched route details for a selected plane |
 | `GET` | `/api/ships` | All active ships (stale removed) |
 | `GET` | `/api/ships/count` | Ship count → `{"count": N}` |
 | `GET` | `/api/ships/{mmsi}` | Single ship or `null` |
+| `GET` | `/api/stale-thresholds` | Current backend cleanup thresholds in seconds |
 
 ### WebSocket — `/ws`
 
@@ -415,6 +467,7 @@ Example ship_batch message:
 |--------|------|----------|------|--------|
 | [OpenSky Network](https://opensky-network.org/api/states/all) | Aircraft (ADS-B) | Global (~12,000+ aircraft) | OAuth2 (optional) | Live |
 | [adsb.lol](https://api.adsb.lol/) | Aircraft (ADS-B) | Public regional v2 API, feeder-only full API | None for public API | Live |
+| [Aviationstack](https://aviationstack.com/) | Aircraft routes / airport lookups | Selected flight enrichment | API key (optional) | Live |
 | [aisstream.io](https://aisstream.io/) | Ships (AIS) | Global (real-time WebSocket) | API Key (free) | Live |
 | [GDELT Project](https://www.gdeltproject.org/) | World Events | Global | None | Live |
 
