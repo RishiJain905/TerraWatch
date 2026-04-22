@@ -41,9 +41,32 @@ export function formatTone(tone) {
 }
 
 export function copyToClipboard(text) {
-  return navigator.clipboard.writeText(text).catch(() => {
-    // Fail silently — clipboard may be blocked (HTTP / permissions)
-  })
+  const clipboard = globalThis.navigator?.clipboard
+  if (clipboard?.writeText) {
+    return clipboard.writeText(text).catch(() => {})
+  }
+
+  if (typeof document === 'undefined') {
+    return Promise.resolve()
+  }
+
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', 'true')
+  textarea.style.position = 'absolute'
+  textarea.style.left = '-9999px'
+  document.body.appendChild(textarea)
+  textarea.select()
+
+  try {
+    document.execCommand('copy')
+  } catch (_) {
+    // Ignore clipboard failures in insecure or restricted contexts.
+  } finally {
+    document.body.removeChild(textarea)
+  }
+
+  return Promise.resolve()
 }
 
 export function formatRelativeTime(isoTimestamp) {

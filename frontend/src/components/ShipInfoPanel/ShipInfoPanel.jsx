@@ -8,6 +8,7 @@ export default function ShipInfoPanel({ ship, onClose }) {
   if (!ship) return null
 
   const [copiedId, setCopiedId] = useState(null)
+  const shipTitle = formatOptional(ship.name, null, ship.id ? `MMSI ${ship.id}` : 'Unknown vessel')
 
   const handleCopy = (id, text) => {
     copyToClipboard(text)
@@ -22,7 +23,7 @@ export default function ShipInfoPanel({ ship, onClose }) {
       <div className="ship-info-header">
         <h3>
           <span className="ship-type-dot" style={{ backgroundColor: typeColor }}></span>
-          {ship.name || `MMSI ${ship.id}`}
+          {shipTitle}
         </h3>
         <button className="close-btn" onClick={onClose}>×</button>
       </div>
